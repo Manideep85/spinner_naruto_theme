@@ -179,11 +179,11 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       ctx.closePath();
       ctx.clip();
 
-      // Background gradient
-      const grad = ctx.createRadialGradient(0, 0, 20, 0, 0, innerWheelRadius);
-      grad.addColorStop(0, "#0F121C");
-      grad.addColorStop(0.45, prize.color);
-      grad.addColorStop(1, "#07080D");
+      // Background gradient matching character element
+      const grad = ctx.createRadialGradient(0, 0, 10, 0, 0, innerWheelRadius);
+      grad.addColorStop(0, "#0B0D14");
+      grad.addColorStop(0.35, prize.color);
+      grad.addColorStop(0.9, "#05060A");
       ctx.fillStyle = grad;
       ctx.fill();
 
@@ -193,49 +193,68 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       drawClanWatermark(ctx, prize.character || prize.name, innerWheelRadius);
       ctx.restore();
 
-      // Draw Character Medallion Badge (Positioned at inner-mid radius, 100% clean circular clip)
+      // Full-Slice High-Clarity Character Artwork (Fills entire 45° sector wedge)
       if (charImg && charImg.complete && charImg.naturalWidth > 0) {
         ctx.save();
         ctx.rotate(midAngle);
 
-        const charCenterX = innerWheelRadius * 0.38;
-        const charRadius = innerWheelRadius * 0.26;
+        const imgSize = innerWheelRadius * 2.15;
+        const imgX = -innerWheelRadius * 0.08;
+        const imgY = -imgSize / 2;
 
-        // A. Dark shadow behind medallion
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(charCenterX, 0, charRadius, 0, Math.PI * 2);
-        ctx.shadowColor = "rgba(0, 0, 0, 0.85)";
-        ctx.shadowBlur = 12;
-        ctx.fillStyle = "#0B0D14";
-        ctx.fill();
-        ctx.restore();
-
-        // B. Clip character image to precise circular path (removes 100% of checkerboard & square background corners)
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(charCenterX, 0, charRadius, 0, Math.PI * 2);
-        ctx.clip();
-        ctx.drawImage(
-          charImg,
-          charCenterX - charRadius,
-          -charRadius,
-          charRadius * 2,
-          charRadius * 2
-        );
-        ctx.restore();
-
-        // C. Golden Scroll Ring around character medallion
-        ctx.beginPath();
-        ctx.arc(charCenterX, 0, charRadius, 0, Math.PI * 2);
-        ctx.lineWidth = 2.5;
-        ctx.strokeStyle = "#FFD700";
-        ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
-        ctx.shadowBlur = 6;
-        ctx.stroke();
+        ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
+        ctx.shadowBlur = 10;
+        ctx.drawImage(charImg, imgX, imgY, imgSize, imgSize);
 
         ctx.restore();
       }
+
+      // Draw Energetic Ninja Slash Banner with Bold Text across Mid-Outer Slice (NO EMOJIS)
+      ctx.save();
+      ctx.rotate(midAngle);
+
+      let offerText = prize.name
+        .replace(/[^\w\s%₹-]/gi, "")
+        .trim()
+        .toUpperCase();
+      if (offerText.includes("BETTER") || offerText.includes("NEXT")) offerText = "NEXT TIME";
+      else if (offerText.includes("2 MAGNETS")) offerText = "2 MAGNETS ₹300";
+      else if (offerText.includes("RAMEN") || offerText.includes("FRIEND")) offerText = "RAMEN DEAL";
+      else if (offerText.includes("RE-SPIN") || offerText.includes("RESPIN")) offerText = "RE-SPIN CHAKRA";
+      else if (offerText.includes("FREE")) offerText = "FREE MAGNET";
+
+      ctx.font = "900 italic 12px Impact, system-ui, -apple-system, sans-serif";
+      const textMetrics = ctx.measureText(offerText);
+      const bannerWidth = Math.max(textMetrics.width + 20, innerWheelRadius * 0.44);
+      const bannerHeight = 24;
+      const bannerX = innerWheelRadius * 0.46;
+
+      // Angular Black Ninja Slash Shape
+      ctx.beginPath();
+      ctx.moveTo(bannerX - 10, -bannerHeight / 2 - 2);
+      ctx.lineTo(bannerX + bannerWidth + 8, -bannerHeight / 2 + 3);
+      ctx.lineTo(bannerX + bannerWidth - 4, bannerHeight / 2 + 2);
+      ctx.lineTo(bannerX - 14, bannerHeight / 2 - 1);
+      ctx.closePath();
+
+      ctx.fillStyle = "rgba(10, 11, 16, 0.94)";
+      ctx.fill();
+      ctx.lineWidth = 1.8;
+      ctx.strokeStyle = "#FFD700";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
+      ctx.shadowBlur = 8;
+      ctx.stroke();
+
+      // Bold Ninja Text (Gold with Black Outline)
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = "900 italic 12px Impact, system-ui, -apple-system, sans-serif";
+      ctx.fillStyle = "#FFD700";
+      ctx.shadowColor = "#000000";
+      ctx.shadowBlur = 6;
+      ctx.fillText(offerText, bannerX + bannerWidth / 2 - 3, 0);
+
+      ctx.restore();
 
       ctx.restore(); // End sector wedge clip
 
@@ -244,55 +263,11 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       ctx.beginPath();
       ctx.moveTo(0, 0);
       ctx.lineTo(Math.cos(startAngle) * innerWheelRadius, Math.sin(startAngle) * innerWheelRadius);
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 3.5;
       ctx.strokeStyle = "#FFD700";
-      ctx.shadowColor = "rgba(0,0,0,0.8)";
-      ctx.shadowBlur = 4;
+      ctx.shadowColor = "rgba(0,0,0,0.9)";
+      ctx.shadowBlur = 5;
       ctx.stroke();
-      ctx.restore();
-
-      // C. Offer Text Banner Pill Placed Right at the Outer Circle Radius (ZERO Overlap with Character Face!)
-      ctx.save();
-      ctx.rotate(midAngle);
-
-      let offerText = prize.name;
-      if (prize.name.includes("BETTER")) offerText = "NEXT TIME 🍃";
-      else if (prize.name.includes("2 MAGNETS")) offerText = "2 MAGNETS ₹300 🧲";
-      else if (prize.name.includes("RAMEN")) offerText = "RAMEN DEAL 🍜";
-      else if (prize.name.includes("RE-SPIN")) offerText = "RE-SPIN CHAKRA 🌀";
-      else if (prize.name.includes("FREE")) offerText = "FREE MAGNET 🍥";
-
-      ctx.font = "900 9px system-ui, -apple-system, sans-serif";
-      const textMetrics = ctx.measureText(offerText);
-      const bannerWidth = Math.max(textMetrics.width + 12, innerWheelRadius * 0.28);
-      const bannerHeight = 18;
-      const bannerX = innerWheelRadius * 0.96 - bannerWidth;
-      const bannerY = -bannerHeight / 2;
-
-      // Outer Edge Text Pill Background
-      ctx.beginPath();
-      if (typeof (ctx as any).roundRect === "function") {
-        (ctx as any).roundRect(bannerX, bannerY, bannerWidth, bannerHeight, 9);
-      } else {
-        ctx.rect(bannerX, bannerY, bannerWidth, bannerHeight);
-      }
-      ctx.fillStyle = "rgba(11, 13, 20, 0.94)";
-      ctx.fill();
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = "#FFD700";
-      ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
-      ctx.shadowBlur = 6;
-      ctx.stroke();
-
-      // Single Line Offer Text Right-Aligned to Outer Rim
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.font = "900 9px system-ui, -apple-system, sans-serif";
-      ctx.fillStyle = "#FFD700";
-      ctx.shadowColor = "#000000";
-      ctx.shadowBlur = 4;
-      ctx.fillText(offerText, bannerX + bannerWidth / 2, 0);
-
       ctx.restore();
     }
     ctx.restore();
