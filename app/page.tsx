@@ -7,6 +7,7 @@ import { ScrollModal } from "@/components/ScrollModal";
 import { AlreadyClaimedCard } from "@/components/AlreadyClaimedCard";
 import { Prize, INITIAL_PRIZES } from "@/lib/prizes";
 import { narutoAudio } from "@/lib/audio";
+import { validateMobileNumber } from "@/lib/utils";
 import {
   Volume2,
   VolumeX,
@@ -122,13 +123,18 @@ function SpinnerPageContent() {
     e.preventDefault();
     narutoAudio.initCtx();
 
-    if (!userName.trim() || !userPhone.trim()) {
-      setErrorMessage("Please enter both your Name and Phone Number.");
+    if (!userName.trim()) {
+      setErrorMessage("Please enter your Full Name.");
       return;
     }
 
-    const cleanPhoneDigits = userPhone.trim().replace(/\D/g, "");
-    const last10 = cleanPhoneDigits.length >= 10 ? cleanPhoneDigits.slice(-10) : cleanPhoneDigits;
+    const phoneVal = validateMobileNumber(userPhone || "");
+    if (!phoneVal.valid) {
+      setErrorMessage(phoneVal.error || "Please enter a valid 10-digit mobile number.");
+      return;
+    }
+
+    const last10 = phoneVal.cleanPhone;
 
     // Check client side persistent lock
     if (typeof window !== "undefined" && last10) {

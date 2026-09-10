@@ -1,18 +1,12 @@
 import { NextResponse } from "next/server";
 import { createSignedToken } from "@/lib/tokens";
 import { registerCustomerUser, isPhoneAlreadyUsed } from "@/lib/db";
+import { validateMobileNumber } from "@/lib/utils";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { name, phone } = body;
-
-    if (!phone || phone.trim().length < 8) {
-      return NextResponse.json(
-        { success: false, error: "Please enter a valid 10-digit phone number." },
-        { status: 400 }
-      );
-    }
 
     if (!name || name.trim().length < 2) {
       return NextResponse.json(
@@ -21,7 +15,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const cleanPhone = phone.trim().replace(/\D/g, "");
+    const phoneValidation = validateMobileNumber(phone || "");
+    if (!phoneValidation.valid) {
+      return NextResponse.json(
+        { success: false, error: phoneValidation.error || "Please enter a valid 10-digit mobile phone number." },
+        { status: 400 }
+      );
+    }
+
+    const cleanPhone = phoneValidation.cleanPhone;
 
     // 1. Strict Phone Lock Check: Prevent already registered phone numbers from getting a new spin
     const phoneCheck = isPhoneAlreadyUsed(cleanPhone);

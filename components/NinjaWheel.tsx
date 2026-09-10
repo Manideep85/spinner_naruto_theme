@@ -159,43 +159,8 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
     for (let i = 0; i < numSlices; i++) {
       const startAngle = i * sliceAngle;
       const endAngle = startAngle + sliceAngle;
-      const prize = prizes[i];
-
-      // Slice sector fill
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.arc(0, 0, innerWheelRadius, startAngle, endAngle);
-      ctx.closePath();
-
-      // Multi-stop radial gradient matching reference image
-      const grad = ctx.createRadialGradient(0, 0, 15, 0, 0, innerWheelRadius);
-      grad.addColorStop(0, "#121520");
-      grad.addColorStop(0.45, prize.color);
-      grad.addColorStop(1, "#07090E");
-      ctx.fillStyle = grad;
-      ctx.fill();
-
-      // Gold Scroll Divider Line
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = "#FFD700";
-      ctx.shadowColor = "rgba(0,0,0,0.8)";
-      ctx.shadowBlur = 4;
-      ctx.stroke();
-
-      // Draw Clan Watermark
-      const charNameStr = prize.character || prize.name;
-      ctx.save();
-      ctx.rotate(startAngle + sliceAngle / 2);
-      drawClanWatermark(ctx, charNameStr, innerWheelRadius);
-      ctx.restore();
-
-      // Draw Character Avatar Image & Bold Anime Typography
-      ctx.save();
       const midAngle = startAngle + sliceAngle / 2;
-      ctx.rotate(midAngle);
-
-      ctx.textAlign = "right";
-      ctx.textBaseline = "middle";
+      const prize = prizes[i];
 
       const firstNameRaw = (prize.character || prize.name)
         .split(" ")[0]
@@ -206,52 +171,72 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
 
       const charImg = loadedImagesRef.current[charKey];
 
-      // Draw Circular Character Image Portrait
+      // 1. Clip everything in this slice sector to the wedge shape
       ctx.save();
-      const portraitCenterX = innerWheelRadius - 26;
-      const portraitCenterY = 0;
-      const portraitRadius = 18;
-
       ctx.beginPath();
-      ctx.arc(portraitCenterX, portraitCenterY, portraitRadius, 0, Math.PI * 2);
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, innerWheelRadius, startAngle, endAngle);
       ctx.closePath();
+      ctx.clip();
 
+      // Dual-tone radial background gradient
+      const grad = ctx.createRadialGradient(0, 0, 15, 0, 0, innerWheelRadius);
+      grad.addColorStop(0, "#121520");
+      grad.addColorStop(0.4, prize.color);
+      grad.addColorStop(1, "#07090E");
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Draw Clan Watermark
+      ctx.save();
+      ctx.rotate(midAngle);
+      drawClanWatermark(ctx, prize.character || prize.name, innerWheelRadius);
+      ctx.restore();
+
+      // Draw Character Artwork Image Filling the Slice Sector Wedge
       if (charImg && charImg.complete && charImg.naturalWidth > 0) {
         ctx.save();
-        ctx.clip();
-        ctx.drawImage(
-          charImg,
-          portraitCenterX - portraitRadius,
-          portraitCenterY - portraitRadius,
-          portraitRadius * 2,
-          portraitRadius * 2
-        );
+        ctx.rotate(midAngle);
+
+        const imgSize = innerWheelRadius * 1.35;
+        const imgX = innerWheelRadius * 0.15;
+        const imgY = -imgSize / 2;
+
+        ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
+        ctx.shadowBlur = 10;
+        ctx.drawImage(charImg, imgX, imgY, imgSize, imgSize);
         ctx.restore();
-      } else {
-        ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-        ctx.fill();
-        ctx.font = "16px sans-serif";
-        ctx.fillText(prize.icon, portraitCenterX + 8, portraitCenterY);
       }
 
-      // Draw Gold Ring Frame around Portrait Image
+      ctx.restore(); // <--- End sector wedge clip
+
+      // 2. Gold Scroll Divider Line
+      ctx.save();
       ctx.beginPath();
-      ctx.arc(portraitCenterX, portraitCenterY, portraitRadius, 0, Math.PI * 2);
-      ctx.lineWidth = 2;
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(startAngle) * innerWheelRadius, Math.sin(startAngle) * innerWheelRadius);
+      ctx.lineWidth = 2.5;
       ctx.strokeStyle = "#FFD700";
-      ctx.shadowColor = "#FF6B00";
-      ctx.shadowBlur = 6;
+      ctx.shadowColor = "rgba(0,0,0,0.8)";
+      ctx.shadowBlur = 4;
       ctx.stroke();
       ctx.restore();
 
-      // Character Name in Bold Anime Typography
+      // 3. Draw Character Name & Prize Subtext in Bold Anime Typography
+      ctx.save();
+      ctx.rotate(midAngle);
+
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+
+      // Character Name (e.g. SAKURA, JIRAIYA, GAARA, PAIN, ROCK LEE, SASUKE, ITACHI, NARUTO)
       ctx.font = "900 13px system-ui, -apple-system, sans-serif";
       ctx.fillStyle = "#FFFFFF";
       ctx.shadowColor = "#000000";
       ctx.shadowBlur = 8;
-      ctx.shadowOffsetX = 1;
-      ctx.shadowOffsetY = 1;
-      ctx.fillText(firstName, innerWheelRadius - 50, -5);
+      ctx.shadowOffsetX = 1.5;
+      ctx.shadowOffsetY = 1.5;
+      ctx.fillText(firstName, innerWheelRadius - 22, -6);
 
       // Prize Short Subtext
       let subtext = prize.name.split(" ")[0];
@@ -274,8 +259,10 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       ctx.font = "800 9px sans-serif";
       ctx.fillStyle = "#FFD700";
       ctx.shadowColor = "#000000";
-      ctx.shadowBlur = 4;
-      ctx.fillText(subtext, innerWheelRadius - 44, 9);
+      ctx.shadowBlur = 6;
+      ctx.shadowOffsetX = 1;
+      ctx.shadowOffsetY = 1;
+      ctx.fillText(subtext, innerWheelRadius - 22, 8);
 
       ctx.restore();
     }
