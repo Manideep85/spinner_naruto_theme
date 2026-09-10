@@ -15,6 +15,7 @@ import {
   User,
   Phone,
   Settings,
+  Info,
 } from "lucide-react";
 
 function SpinnerPageContent() {
@@ -405,6 +406,28 @@ function SpinnerPageContent() {
               </button>
             </form>
 
+            {/* OFFER TERMS & FRAME APPLICABILITY DISCLAIMERS */}
+            <div className="w-full bg-black/40 border border-konoha-gold/30 rounded-xl p-3.5 space-y-2 text-left">
+              <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-konoha-gold">
+                <Info className="w-4 h-4 text-konoha-orange flex-shrink-0" />
+                <span>Offer Terms & Frame Rules:</span>
+              </div>
+              <ul className="text-[11px] text-gray-300 space-y-1 font-mono leading-snug">
+                <li className="flex items-start gap-1.5">
+                  <span className="text-konoha-orange font-bold">1.</span>
+                  <span><strong className="text-konoha-gold">5% OFF:</strong> Applicable for all frames.</span>
+                </li>
+                <li className="flex items-start gap-1.5">
+                  <span className="text-konoha-orange font-bold">2.</span>
+                  <span><strong className="text-konoha-gold">10% OFF:</strong> Applicable for all frames except 4x6 (big frame).</span>
+                </li>
+                <li className="flex items-start gap-1.5">
+                  <span className="text-konoha-orange font-bold">3.</span>
+                  <span><strong className="text-konoha-gold">2 Magnets for ₹300:</strong> Applicable for Square & Rectangular frames only (3x3 and 3x4).</span>
+                </li>
+              </ul>
+            </div>
+
             <div className="text-[11px] text-gray-500 font-mono italic">
               Automated thank you message & reward details will be sent via WhatsApp upon spinning.
             </div>
@@ -453,6 +476,28 @@ function SpinnerPageContent() {
               onSpinStart={handleSpinStart}
               onSpinComplete={handleSpinComplete}
             />
+
+            {/* OFFER TERMS & FRAME APPLICABILITY DISCLAIMERS */}
+            <div className="w-full max-w-md bg-konoha-cardBg/90 border border-konoha-gold/40 rounded-xl p-3.5 space-y-2 text-left shadow-[0_0_20px_rgba(255,215,0,0.12)] backdrop-blur-md">
+              <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-konoha-gold">
+                <Info className="w-4 h-4 text-konoha-orange flex-shrink-0" />
+                <span>Offer Terms & Frame Rules:</span>
+              </div>
+              <ul className="text-[11px] text-gray-200 space-y-1.5 font-mono leading-snug">
+                <li className="flex items-start gap-1.5">
+                  <span className="text-konoha-orange font-bold">1.</span>
+                  <span><strong className="text-konoha-gold">5% OFF:</strong> Applicable for all frames.</span>
+                </li>
+                <li className="flex items-start gap-1.5">
+                  <span className="text-konoha-orange font-bold">2.</span>
+                  <span><strong className="text-konoha-gold">10% OFF:</strong> Applicable for all frames except 4x6 (big frame).</span>
+                </li>
+                <li className="flex items-start gap-1.5">
+                  <span className="text-konoha-orange font-bold">3.</span>
+                  <span><strong className="text-konoha-gold">2 Magnets for ₹300:</strong> Applicable for Square & Rectangular frames only (3x3 and 3x4).</span>
+                </li>
+              </ul>
+            </div>
           </div>
         )}
       </main>

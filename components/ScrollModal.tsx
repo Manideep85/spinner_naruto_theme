@@ -89,9 +89,21 @@ export const ScrollModal: React.FC<ScrollModalProps> = ({
             <h2 className="text-2xl font-black text-konoha-darkOrange tracking-tight leading-tight">
               {prize.name}
             </h2>
-            <p className="text-sm font-medium text-[#4A3828] bg-[#FAF3E0] p-3.5 rounded-lg border border-[#D9C095] leading-relaxed">
+            <p className="text-sm font-medium text-[#4A3828] bg-[#FAF3E0] p-3 rounded-lg border border-[#D9C095] leading-relaxed">
               {prize.description}
             </p>
+
+            {/* Frame Applicability Note */}
+            <div className="text-xs font-bold text-[#8C2C00] bg-[#FFF8E7] p-2.5 rounded-lg border border-[#E6C994] font-mono flex items-start gap-1.5 text-left shadow-sm">
+              <span className="text-base leading-none">📌</span>
+              <div>
+                <span className="font-extrabold uppercase text-[#6E2C00] block text-[10px]">Frame Rule:</span>
+                {prize.name.includes("5%") && "Applicable for all frames."}
+                {prize.name.includes("10%") && "Applicable for all frames except 4x6 (big frame)."}
+                {prize.name.includes("MAGNETS") && "Applicable for Square & Rectangular frames only (3x3 and 3x4)."}
+                {!prize.name.includes("5%") && !prize.name.includes("10%") && !prize.name.includes("MAGNETS") && "Single-use Leaf Village reward."}
+              </div>
+            </div>
           </div>
 
           {/* Claim Reward & Close Button ONLY */}

@@ -245,10 +245,13 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       ctx.shadowBlur = 8;
       ctx.stroke();
 
-      // Bold Ninja Text (Gold with Black Outline)
+      // Bold Ninja Text (Gold with Black Outline for High Contrast & Visual Highlight)
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = "900 italic 12px Impact, system-ui, -apple-system, sans-serif";
+      ctx.font = "900 italic 12.5px Impact, system-ui, -apple-system, sans-serif";
+      ctx.lineWidth = 3.5;
+      ctx.strokeStyle = "#000000";
+      ctx.strokeText(offerText, bannerX + bannerWidth / 2 - 3, 0);
       ctx.fillStyle = "#FFD700";
       ctx.shadowColor = "#000000";
       ctx.shadowBlur = 6;
