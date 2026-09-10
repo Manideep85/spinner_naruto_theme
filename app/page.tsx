@@ -11,7 +11,6 @@ import {
   Volume2,
   VolumeX,
   ShieldCheck,
-  Sparkles,
   Flame,
   User,
   Phone,
@@ -23,11 +22,11 @@ function SpinnerPageContent() {
   const router = useRouter();
   const tokenParam = searchParams.get("token") || "";
 
-  const [activeToken, setActiveToken] = useState<string>(tokenParam);
+  const [activeToken, setActiveToken] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
   const [userPhone, setUserPhone] = useState<string>("");
 
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [tokenValid, setTokenValid] = useState<boolean>(false);
   const [isUsed, setIsUsed] = useState<boolean>(false);
   const [claimedAt, setClaimedAt] = useState<string | undefined>(undefined);
@@ -44,24 +43,23 @@ function SpinnerPageContent() {
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
 
-  // Fetch active prizes table on load
+  // Restore token & claim status from localStorage/cookie on mount
   useEffect(() => {
-    fetch("/api/verify")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.prizes) {
-          setPrizesList(data.prizes);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  // Verify token if activeToken is present
-  useEffect(() => {
-    if (!activeToken) {
-      setTokenValid(false);
-      return;
+    let token = tokenParam;
+    if (!token && typeof window !== "undefined") {
+      token = localStorage.getItem("current_ninja_token") || "";
     }
+
+    if (token) {
+      setActiveToken(token);
+    } else {
+      setIsLoading(false);
+    }
+  }, [tokenParam]);
+
+  // Fetch prizes & verify token
+  useEffect(() => {
+    if (!activeToken) return;
 
     setIsLoading(true);
     setErrorMessage("");
@@ -75,9 +73,34 @@ function SpinnerPageContent() {
         }
         if (data.valid) {
           setTokenValid(true);
-          setIsUsed(data.is_used);
-          setClaimedAt(data.claimed_at);
-          setPrizeWon(data.prize_won || null);
+
+          // Check if local persistent claim lock exists
+          let localClaimed = false;
+          let savedPrize: Prize | null = null;
+          if (typeof window !== "undefined") {
+            const localData = localStorage.getItem(`ninja_claimed_${activeToken}`);
+            if (localData) {
+              try {
+                const parsed = JSON.parse(localData);
+                localClaimed = true;
+                savedPrize = parsed.prize;
+              } catch {}
+            }
+          }
+
+          const claimedState = data.is_used || localClaimed;
+          const finalPrize = data.prize_won || savedPrize;
+
+          // Check if prize won was bonus RE-SPIN CHAKRA
+          const isBonusRespin = finalPrize?.id === "re-spin-chakra";
+
+          if (claimedState && !isBonusRespin) {
+            setIsUsed(true);
+            setPrizeWon(finalPrize);
+            setClaimedAt(data.claimed_at || new Date().toISOString());
+          } else {
+            setIsUsed(false);
+          }
         } else {
           setTokenValid(false);
           setErrorMessage(data.error || "Invalid Spin Scroll Token.");
@@ -85,7 +108,6 @@ function SpinnerPageContent() {
       })
       .catch(() => {
         setIsLoading(false);
-        setTokenValid(false);
         setErrorMessage("Network error connecting to server.");
       });
   }, [activeToken]);
@@ -93,6 +115,8 @@ function SpinnerPageContent() {
   // Handle Form Registration
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    narutoAudio.initCtx();
+
     if (!userName.trim() || !userPhone.trim()) {
       setErrorMessage("Please enter both your Name and Phone Number.");
       return;
@@ -120,6 +144,9 @@ function SpinnerPageContent() {
       }
 
       setActiveToken(data.token);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("current_ninja_token", data.token);
+      }
       router.push(`/?token=${data.token}`);
     } catch {
       setIsLoading(false);
@@ -130,6 +157,7 @@ function SpinnerPageContent() {
   // Handle Spin Execution
   const handleSpinStart = async () => {
     if (!activeToken || isSpinning || isUsed) return;
+    narutoAudio.initCtx();
 
     setIsSpinning(true);
     setErrorMessage("");
@@ -150,6 +178,9 @@ function SpinnerPageContent() {
           setPrizeWon(data.prize_won);
           setClaimedAt(data.claimed_at);
           setWhatsappLink(data.whatsappLink);
+          if (typeof window !== "undefined") {
+            localStorage.setItem(`ninja_claimed_${activeToken}`, JSON.stringify({ prize: data.prize_won }));
+          }
         } else {
           setErrorMessage(data.error || "Failed to execute spin.");
         }
@@ -167,12 +198,26 @@ function SpinnerPageContent() {
 
   const handleSpinComplete = () => {
     setIsSpinning(false);
-    setIsUsed(true);
+
     if (wonPrize) {
       setPrizeWon(wonPrize);
       setClaimedAt(new Date().toISOString());
       setShowModal(true);
 
+      // Lock single-use claim persistently in localStorage
+      if (typeof window !== "undefined") {
+        localStorage.setItem(
+          `ninja_claimed_${activeToken}`,
+          JSON.stringify({ is_used: true, prize: wonPrize, claimed_at: new Date().toISOString() })
+        );
+      }
+
+      // Check if re-spin bonus
+      if (wonPrize.id !== "re-spin-chakra") {
+        setIsUsed(true);
+      }
+
+      // Trigger WhatsApp Link
       if (whatsappLink) {
         setTimeout(() => {
           window.open(whatsappLink, "_blank");
@@ -222,7 +267,7 @@ function SpinnerPageContent() {
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Main Content: SHOWS ONLY THE SPIN WHEEL OR REGISTRATION */}
       <main className="flex-1 flex flex-col items-center justify-center my-4">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center p-12 space-y-4">
@@ -306,6 +351,9 @@ function SpinnerPageContent() {
             <button
               onClick={() => {
                 setActiveToken("");
+                if (typeof window !== "undefined") {
+                  localStorage.removeItem("current_ninja_token");
+                }
                 router.push("/");
               }}
               className="py-2.5 px-5 bg-gray-800 hover:bg-gray-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
@@ -314,19 +362,19 @@ function SpinnerPageContent() {
             </button>
           </div>
         ) : isUsed ? (
-          /* STEP 3: Already Used Protection */
+          /* STRICT SINGLE-USE LOCK (On Refresh / Rescan) */
           <AlreadyClaimedCard
             tokenCode={activeToken}
             claimedAt={claimedAt}
             prizeWon={prizeWon}
           />
         ) : (
-          /* STEP 2: Active Unused Token Screen -> Spin Wheel */
-          <div className="w-full flex flex-col items-center space-y-4">
+          /* ACTIVE UNUSED TOKEN SCREEN: SHOWS ONLY THE SPIN WHEEL */
+          <div className="w-full flex flex-col items-center justify-center space-y-4 my-auto">
             <div className="w-full bg-konoha-cardBg/90 border border-konoha-orange/40 rounded-xl p-3 flex items-center justify-between text-xs font-mono">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-green-400" />
-                <span>Ticket: <strong className="text-konoha-orange">{activeToken}</strong></span>
+                <span>Ticket: <strong className="text-konoha-orange">{activeToken.slice(0, 15)}...</strong></span>
               </div>
               <span className="bg-green-950 text-green-400 px-2 py-0.5 rounded text-[10px] font-bold border border-green-800">
                 1-TIME SPIN UNLOCKED
@@ -339,6 +387,7 @@ function SpinnerPageContent() {
               </div>
             )}
 
+            {/* ONLY THE SPIN WHEEL IS DISPLAYED HERE */}
             <NinjaWheel
               prizes={prizesList}
               targetSliceIndex={targetSliceIndex}
@@ -346,27 +395,6 @@ function SpinnerPageContent() {
               onSpinStart={handleSpinStart}
               onSpinComplete={handleSpinComplete}
             />
-
-            {/* Wheel Slices Preview Grid */}
-            <div className="w-full bg-black/40 border border-gray-800 rounded-xl p-3 space-y-2">
-              <div className="text-[10px] uppercase font-mono text-gray-400 tracking-wider flex items-center justify-between">
-                <span>WHEEL SECTIONS (SECRET SERVER ODDS)</span>
-                <span className="text-konoha-gold flex items-center gap-1">
-                  <Sparkles className="w-3 h-3" /> {prizesList.length} Slices
-                </span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[11px]">
-                {prizesList.map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-1.5 rounded-lg bg-gray-900/60 border border-gray-800 flex items-center gap-1 truncate text-gray-300"
-                  >
-                    <span>{item.icon}</span>
-                    <span className="truncate font-bold">{item.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         )}
       </main>

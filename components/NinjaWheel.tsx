@@ -30,7 +30,6 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
   const numSlices = prizes.length;
   const sliceAngle = (Math.PI * 2) / numSlices;
 
-  // Sharingan idle rotation effect
   useEffect(() => {
     const interval = setInterval(() => {
       setSharinganAngle((prev) => (prev + 2) % 360);
@@ -38,7 +37,6 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Main canvas render loop
   const drawWheel = (angleOffset: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -85,7 +83,6 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       ctx.fillStyle = prize.color;
       ctx.fill();
 
-      // Slice border line (Gold scroll pattern)
       ctx.lineWidth = 3;
       ctx.strokeStyle = "#B88A44";
       ctx.stroke();
@@ -95,21 +92,17 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       const midAngle = startAngle + sliceAngle / 2;
       ctx.rotate(midAngle);
 
-      // Icon & Text placement
       ctx.textAlign = "right";
       ctx.fillStyle = prize.textColor;
       ctx.font = "bold 15px sans-serif";
       ctx.shadowColor = "rgba(0,0,0,0.7)";
       ctx.shadowBlur = 4;
 
-      // Draw Emoji/Icon
       ctx.font = "22px sans-serif";
       ctx.fillText(prize.icon, radius - 20, 7);
 
-      // Draw Label
       ctx.font = "bold 11px sans-serif";
-      const nameStr = prize.name;
-      ctx.fillText(nameStr, radius - 52, 4);
+      ctx.fillText(prize.name, radius - 52, 4);
 
       ctx.restore();
     }
@@ -159,7 +152,7 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
 
     ctx.restore();
 
-    // 5. Top Konoha Pointer (pointing down at top 270 degrees)
+    // 5. Top Konoha Pointer
     ctx.save();
     ctx.translate(centerX, centerY - radius - 8);
     ctx.beginPath();
@@ -181,15 +174,14 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
     drawWheel(currentAngleRef.current);
   }, [prizes, sharinganAngle]);
 
-  // Handle Wheel Spin Animation when targetSliceIndex is provided
   useEffect(() => {
     if (!isSpinning || targetSliceIndex === null) return;
 
+    narutoAudio.initCtx();
     narutoAudio.playSpinStart();
 
     const startAngle = currentAngleRef.current;
     
-    // Mathematical alignment for top pointer (270 deg / 1.5 * PI)
     const targetSliceCenter = targetSliceIndex * sliceAngle + sliceAngle / 2;
     const pointerAngle = (3 * Math.PI) / 2;
 
@@ -202,7 +194,6 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       deltaAngle += 2 * Math.PI;
     }
 
-    // 5 Full Rotations + Exact Slice Offset
     const finalAngle = startAngle + 5 * (2 * Math.PI) + deltaAngle;
 
     const startTime = performance.now();
@@ -212,14 +203,12 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
 
-      // Ease Out Cubic for realistic deceleration
       const easeOut = 1 - Math.pow(1 - progress, 3);
       const currentAngle = startAngle + (finalAngle - startAngle) * easeOut;
 
       currentAngleRef.current = currentAngle;
       drawWheel(currentAngle);
 
-      // Audio tick check
       const normalizedAngle = (pointerAngle - currentAngle) % (Math.PI * 2);
       const positiveAngle = normalizedAngle < 0 ? normalizedAngle + Math.PI * 2 : normalizedAngle;
       const currentSliceUnderPointer = Math.floor(positiveAngle / sliceAngle);
@@ -245,6 +234,13 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
     };
   }, [isSpinning, targetSliceIndex]);
 
+  const handleButtonClick = () => {
+    narutoAudio.initCtx();
+    if (!isSpinning && !disabled) {
+      onSpinStart();
+    }
+  };
+
   return (
     <div className="relative flex flex-col items-center justify-center p-2">
       <div className="relative group">
@@ -256,11 +252,7 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
         />
 
         <button
-          onClick={() => {
-            if (!isSpinning && !disabled) {
-              onSpinStart();
-            }
-          }}
+          onClick={handleButtonClick}
           disabled={isSpinning || disabled}
           className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full font-black text-xs uppercase tracking-wider shadow-2xl transition-all duration-300 flex flex-col items-center justify-center z-10 border-2 ${
             isSpinning || disabled
@@ -271,12 +263,6 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
           <span className="text-base">🌀</span>
           <span>{isSpinning ? "JUTSU..." : "SPIN!"}</span>
         </button>
-      </div>
-
-      <div className="mt-4 text-xs text-konoha-cyan flex items-center gap-1 font-mono tracking-wide">
-        <span className="animate-pulse">✦</span>
-        <span>SHINOBI CHAKRA WHEEL • SECURE SERVER PROBABILITY</span>
-        <span className="animate-pulse">✦</span>
       </div>
     </div>
   );

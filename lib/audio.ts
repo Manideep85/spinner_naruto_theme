@@ -4,15 +4,18 @@ class NarutoSoundManager {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = false;
 
-  private initCtx() {
-    if (!this.ctx && typeof window !== "undefined") {
+  public initCtx() {
+    if (typeof window === "undefined") return;
+
+    if (!this.ctx) {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (AudioCtx) {
         this.ctx = new AudioCtx();
       }
     }
+
     if (this.ctx && this.ctx.state === "suspended") {
-      this.ctx.resume();
+      this.ctx.resume().catch(() => {});
     }
   }
 
@@ -38,21 +41,19 @@ class NarutoSoundManager {
       const gain = this.ctx.createGain();
 
       osc.type = "sine";
-      const freq = 600 * Math.max(0.6, Math.min(2.0, pitchMultiplier));
+      const freq = 650 * Math.max(0.6, Math.min(2.0, pitchMultiplier));
       osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.05);
+      osc.frequency.exponentialRampToValueAtTime(160, this.ctx.currentTime + 0.06);
 
-      gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
+      gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.06);
 
       osc.connect(gain);
       gain.connect(this.ctx.destination);
 
       osc.start();
-      osc.stop(this.ctx.currentTime + 0.05);
-    } catch {
-      // Audio context play error catch
-    }
+      osc.stop(this.ctx.currentTime + 0.06);
+    } catch {}
   }
 
   /**
@@ -68,20 +69,18 @@ class NarutoSoundManager {
       const gain = this.ctx.createGain();
 
       osc.type = "sawtooth";
-      osc.frequency.setValueAtTime(200, this.ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.4);
+      osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(900, this.ctx.currentTime + 0.45);
 
-      gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.45);
+      gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.5);
 
       osc.connect(gain);
       gain.connect(this.ctx.destination);
 
       osc.start();
-      osc.stop(this.ctx.currentTime + 0.45);
-    } catch {
-      // Ignore audio errors
-    }
+      osc.stop(this.ctx.currentTime + 0.5);
+    } catch {}
   }
 
   /**
@@ -102,20 +101,18 @@ class NarutoSoundManager {
         osc.type = "triangle";
         osc.frequency.value = freq;
 
-        const startTime = this.ctx.currentTime + idx * 0.08;
+        const startTime = this.ctx.currentTime + idx * 0.09;
         gain.gain.setValueAtTime(0.01, startTime);
-        gain.gain.linearRampToValueAtTime(0.3, startTime + 0.03);
-        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.6);
+        gain.gain.linearRampToValueAtTime(0.35, startTime + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.65);
 
         osc.connect(gain);
         gain.connect(this.ctx.destination);
 
         osc.start(startTime);
-        osc.stop(startTime + 0.6);
+        osc.stop(startTime + 0.65);
       });
-    } catch {
-      // Ignore
-    }
+    } catch {}
   }
 
   /**
@@ -131,10 +128,10 @@ class NarutoSoundManager {
       const gain = this.ctx.createGain();
 
       osc.type = "sine";
-      osc.frequency.setValueAtTime(120, this.ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + 1.2);
+      osc.frequency.setValueAtTime(130, this.ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(45, this.ctx.currentTime + 1.2);
 
-      gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+      gain.gain.setValueAtTime(0.45, this.ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 1.2);
 
       osc.connect(gain);
@@ -142,9 +139,7 @@ class NarutoSoundManager {
 
       osc.start();
       osc.stop(this.ctx.currentTime + 1.2);
-    } catch {
-      // Ignore
-    }
+    } catch {}
   }
 }
 
