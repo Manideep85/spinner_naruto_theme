@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getToken, getDbPrizes } from "@/lib/db";
+import { verifySignedToken } from "@/lib/tokens";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -15,24 +16,46 @@ export async function GET(request: Request) {
     });
   }
 
-  const token = getToken(tokenCode);
+  // 1. First check if it's a signed token (Vercel Serverless Compatible)
+  const signedPayload = verifySignedToken(tokenCode);
 
-  if (!token) {
+  if (signedPayload) {
+    // Check if token in local memory DB has been used
+    const tokenRecord = getToken(tokenCode);
+
+    return NextResponse.json({
+      valid: true,
+      code: tokenCode,
+      is_used: tokenRecord ? tokenRecord.is_used : false,
+      claimed_at: tokenRecord ? tokenRecord.claimed_at : undefined,
+      prize_won: tokenRecord ? tokenRecord.prize_won : null,
+      slice_index: tokenRecord ? tokenRecord.slice_index : null,
+      customer_name: signedPayload.name,
+      phone: signedPayload.phone,
+      prizes,
+    });
+  }
+
+  // 2. Fallback check for legacy DB token
+  const tokenRecord = getToken(tokenCode);
+
+  if (!tokenRecord) {
     return NextResponse.json({
       valid: false,
       prizes,
-      error: "Invalid Shinobi Ticket Code. This scroll does not exist.",
+      error: "Invalid Spin Token. Please register to get a valid spin scroll.",
     });
   }
 
   return NextResponse.json({
     valid: true,
-    code: token.code,
-    is_used: token.is_used,
-    claimed_at: token.claimed_at,
-    prize_won: token.prize_won || null,
-    slice_index: token.slice_index !== undefined ? token.slice_index : null,
-    note: token.note,
+    code: tokenRecord.code,
+    is_used: tokenRecord.is_used,
+    claimed_at: tokenRecord.claimed_at,
+    prize_won: tokenRecord.prize_won || null,
+    slice_index: tokenRecord.slice_index !== undefined ? tokenRecord.slice_index : null,
+    customer_name: tokenRecord.customer_name,
+    phone: tokenRecord.phone,
     prizes,
   });
 }

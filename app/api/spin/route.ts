@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getToken, claimToken, getDbPrizes } from "@/lib/db";
+import { getToken, claimToken, getDbPrizes, registerCustomerUser } from "@/lib/db";
+import { verifySignedToken } from "@/lib/tokens";
 import { generateWhatsAppLink } from "@/lib/utils";
 import { selectServerPrize } from "@/lib/prizes";
 
@@ -15,18 +16,32 @@ export async function POST(request: Request) {
       );
     }
 
-    const tokenRecord = getToken(tokenCode);
+    let customerName = "Shinobi Customer";
+    let customerPhone = "";
 
-    if (!tokenRecord) {
-      return NextResponse.json(
-        { success: false, error: "Invalid Spin Token. Access Denied." },
-        { status: 404 }
-      );
+    // 1. Verify signed Vercel token
+    const signedPayload = verifySignedToken(tokenCode);
+    if (signedPayload) {
+      customerName = signedPayload.name;
+      customerPhone = signedPayload.phone;
+    } else {
+      // Check legacy DB token
+      const dbToken = getToken(tokenCode);
+      if (!dbToken) {
+        return NextResponse.json(
+          { success: false, error: "Invalid Spin Token. Access Denied." },
+          { status: 404 }
+        );
+      }
+      customerName = dbToken.customer_name || customerName;
+      customerPhone = dbToken.phone || customerPhone;
     }
 
-    if (tokenRecord.is_used) {
-      const waLink = tokenRecord.phone && tokenRecord.prize_won
-        ? generateWhatsAppLink(tokenRecord.phone, tokenRecord.prize_won.name, tokenRecord.customer_name)
+    // Check single-use lock
+    const tokenRecord = getToken(tokenCode);
+    if (tokenRecord && tokenRecord.is_used) {
+      const waLink = customerPhone && tokenRecord.prize_won
+        ? generateWhatsAppLink(customerPhone, tokenRecord.prize_won.name, customerName)
         : null;
 
       return NextResponse.json(
@@ -45,27 +60,26 @@ export async function POST(request: Request) {
     const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "127.0.0.1";
     const userAgent = request.headers.get("user-agent") || "unknown";
 
+    // 2. Secret server prize calculation
     const currentPrizes = getDbPrizes();
     const { prize, sliceIndex } = selectServerPrize(currentPrizes);
 
-    const result = claimToken(tokenCode, prize, sliceIndex, ip, userAgent);
+    // 3. Mark token as claimed
+    const result = claimToken(tokenCode, prize, sliceIndex, ip, userAgent, customerPhone, customerName);
 
-    if (!result.success) {
-      return NextResponse.json(
-        { success: false, error: result.error || "Failed to execute spin." },
-        { status: 400 }
-      );
-    }
+    const whatsappLink = customerPhone
+      ? generateWhatsAppLink(customerPhone, prize.name, customerName)
+      : null;
 
     return NextResponse.json({
       success: true,
       sliceIndex,
       prize,
-      token: result.token?.code,
-      claimedAt: result.token?.claimed_at,
-      whatsappLink: result.whatsappLink,
-      customerName: result.token?.customer_name,
-      phone: result.token?.phone,
+      token: tokenCode,
+      claimedAt: result.token?.claimed_at || new Date().toISOString(),
+      whatsappLink,
+      customerName,
+      phone: customerPhone,
     });
   } catch (error) {
     console.error("Spin route error:", error);

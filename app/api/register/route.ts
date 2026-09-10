@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createSignedToken } from "@/lib/tokens";
 import { registerCustomerUser } from "@/lib/db";
 
 export async function POST(request: Request) {
@@ -8,7 +9,7 @@ export async function POST(request: Request) {
 
     if (!phone || phone.trim().length < 8) {
       return NextResponse.json(
-        { success: false, error: "Please enter a valid phone number." },
+        { success: false, error: "Please enter a valid 10-digit phone number." },
         { status: 400 }
       );
     }
@@ -20,12 +21,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const { token, registration } = registerCustomerUser(name, phone);
+    // 1. Create Vercel-compatible stateless signed token
+    const tokenCode = createSignedToken(name, phone);
+
+    // 2. Also record in local database/cache if writable
+    registerCustomerUser(name, phone);
 
     return NextResponse.json({
       success: true,
-      token: token.code,
-      registration,
+      token: tokenCode,
     });
   } catch (error) {
     console.error("Register Error:", error);

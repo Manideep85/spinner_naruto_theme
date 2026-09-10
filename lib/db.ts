@@ -48,30 +48,13 @@ interface DatabaseSchema {
 const DB_DIR = path.join(process.cwd(), "data");
 const DB_FILE = path.join(DB_DIR, "tokens_db.json");
 
-const DEFAULT_TOKENS: Record<string, TokenRecord> = {
-  "NINJA-DEMO-1": {
-    code: "NINJA-DEMO-1",
-    is_used: false,
-    created_at: new Date().toISOString(),
-    customer_name: "Naruto Uzumaki",
-    phone: "9876543210",
-    note: "Demo Token 1",
-  },
-};
+const DEFAULT_TOKENS: Record<string, TokenRecord> = {};
 
 let inMemoryDb: DatabaseSchema = {
   tokens: { ...DEFAULT_TOKENS },
   logs: [],
   prizes: [...INITIAL_PRIZES],
-  registrations: [
-    {
-      id: "demo-1",
-      name: "Naruto Uzumaki",
-      phone: "9876543210",
-      token_code: "NINJA-DEMO-1",
-      registered_at: new Date().toISOString(),
-    },
-  ],
+  registrations: [],
 };
 
 function ensureDbDirectory() {
@@ -208,21 +191,23 @@ export function claimToken(
   prize: Prize,
   sliceIndex: number,
   ip: string = "unknown",
-  userAgent: string = "unknown"
+  userAgent: string = "unknown",
+  phone?: string,
+  name?: string
 ): { success: boolean; token?: TokenRecord; error?: string; registration?: CustomerRegistration; whatsappLink?: string } {
   const db = readDb();
   const normalized = code.trim().toUpperCase();
-  const token = db.tokens[normalized];
+  let token = db.tokens[normalized];
 
   if (!token) {
-    addLog({
-      id: Math.random().toString(36).substring(2, 9),
-      timestamp: new Date().toISOString(),
-      token: code,
-      action: "INVALID_TOKEN",
-      ip,
-    });
-    return { success: false, error: "Invalid Spin Token. Access Denied!" };
+    // Create dynamically for signed serverless tokens
+    token = {
+      code: normalized,
+      is_used: false,
+      created_at: new Date().toISOString(),
+      customer_name: name,
+      phone: phone,
+    };
   }
 
   if (token.is_used) {
@@ -243,6 +228,8 @@ export function claimToken(
   token.slice_index = sliceIndex;
   token.ip = ip;
   token.user_agent = userAgent;
+  if (phone) token.phone = phone;
+  if (name) token.customer_name = name;
 
   db.tokens[normalized] = token;
 
@@ -256,6 +243,17 @@ export function claimToken(
     db.registrations[regIndex].prize_won = prize.name;
     db.registrations[regIndex].claimed_at = token.claimed_at;
     db.registrations[regIndex].whatsapp_link = waLink;
+  } else if (phone) {
+    db.registrations.unshift({
+      id: Math.random().toString(36).substring(2, 9),
+      name: name || "Shinobi Customer",
+      phone,
+      token_code: normalized,
+      prize_won: prize.name,
+      registered_at: new Date().toISOString(),
+      claimed_at: token.claimed_at,
+      whatsapp_link: waLink,
+    });
   }
 
   addLog({
@@ -272,7 +270,6 @@ export function claimToken(
   return {
     success: true,
     token,
-    registration: regIndex >= 0 ? db.registrations[regIndex] : undefined,
     whatsappLink: waLink,
   };
 }
