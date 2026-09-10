@@ -23,6 +23,7 @@ import {
   FileText,
   XCircle,
   CheckCircle2,
+  Trash2,
 } from "lucide-react";
 
 export default function AdminPage() {
@@ -65,6 +66,39 @@ export default function AdminPage() {
         setIsLoading(false);
         setAuthError("Failed to fetch admin data.");
       });
+  };
+
+  const handleDeleteRegistration = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to DELETE customer registration for "${name}"?\nThis will also unlock their phone number for respinning!`)) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/tokens", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "delete_registration",
+          pin,
+          id,
+        }),
+      });
+
+      const data = await res.json();
+      setIsLoading(false);
+
+      if (data.success) {
+        setRegistrations(data.registrations || []);
+        setSaveSuccessMsg(`Deleted registration for ${name} successfully!`);
+        setTimeout(() => setSaveSuccessMsg(""), 4000);
+      } else {
+        alert(data.error || "Failed to delete registration.");
+      }
+    } catch {
+      setIsLoading(false);
+      alert("Error connecting to server.");
+    }
   };
 
   useEffect(() => {
@@ -454,7 +488,8 @@ export default function AdminPage() {
                   <th className="p-3">Prize Won</th>
                   <th className="p-3">Discount / Offer</th>
                   <th className="p-3">Registration Time</th>
-                  <th className="p-3 text-right">Status</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800/60">
@@ -480,7 +515,7 @@ export default function AdminPage() {
                       <td className="p-3 text-gray-400">
                         {new Date(r.registered_at).toLocaleString()}
                       </td>
-                      <td className="p-3 text-right">
+                      <td className="p-3">
                         {r.prize_won ? (
                           <span className="inline-flex items-center gap-1 py-0.5 px-2 bg-green-950 text-green-400 border border-green-800 rounded text-[10px]">
                             CLAIMED
@@ -490,6 +525,15 @@ export default function AdminPage() {
                             REGISTERED
                           </span>
                         )}
+                      </td>
+                      <td className="p-3 text-right">
+                        <button
+                          onClick={() => handleDeleteRegistration(r.id, r.name || r.phone)}
+                          className="p-1.5 bg-red-950/80 hover:bg-red-900 text-red-400 border border-red-800 rounded-lg transition-all"
+                          title="Delete Registration Record"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </td>
                     </tr>
                   );

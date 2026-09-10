@@ -378,6 +378,41 @@ export function getAllRegistrations(): CustomerRegistration[] {
   return db.registrations || [];
 }
 
+export function deleteRegistration(id: string): boolean {
+  const db = readDb();
+  const initialCount = db.registrations.length;
+  const targetReg = db.registrations.find((r) => r.id === id);
+
+  if (targetReg) {
+    if (targetReg.token_code && db.tokens[targetReg.token_code]) {
+      delete db.tokens[targetReg.token_code];
+    }
+    // Also remove any tokens matching phone
+    if (targetReg.phone) {
+      const cleanPhoneDigits = targetReg.phone.replace(/\D/g, "");
+      const last10 = cleanPhoneDigits.length >= 10 ? cleanPhoneDigits.slice(-10) : cleanPhoneDigits;
+      Object.keys(db.tokens).forEach((k) => {
+        const t = db.tokens[k];
+        if (t.phone) {
+          const tDigits = t.phone.replace(/\D/g, "");
+          const tLast10 = tDigits.length >= 10 ? tDigits.slice(-10) : tDigits;
+          if (tLast10 === last10) {
+            delete db.tokens[k];
+          }
+        }
+      });
+    }
+  }
+
+  db.registrations = db.registrations.filter((r) => r.id !== id);
+
+  if (db.registrations.length !== initialCount) {
+    writeDb(db);
+    return true;
+  }
+  return false;
+}
+
 function addLog(log: SpinLog) {
   const db = readDb();
   db.logs.unshift(log);

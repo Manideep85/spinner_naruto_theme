@@ -193,16 +193,16 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       drawClanWatermark(ctx, prize.character || prize.name, innerWheelRadius);
       ctx.restore();
 
-      // Draw Character Artwork Image (Unobstructed in center of slice wedge)
+      // Draw Character Artwork Image (Positioned in inner wedge so face is 100% unobstructed)
       if (charImg && charImg.complete && charImg.naturalWidth > 0) {
         ctx.save();
         ctx.rotate(midAngle);
 
-        const imgSize = innerWheelRadius * 1.25;
-        const imgX = innerWheelRadius * 0.05;
+        const imgSize = innerWheelRadius * 0.96;
+        const imgX = innerWheelRadius * 0.04;
         const imgY = -imgSize / 2;
 
-        ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+        ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
         ctx.shadowBlur = 8;
         ctx.drawImage(charImg, imgX, imgY, imgSize, imgSize);
         ctx.restore();
@@ -222,41 +222,41 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       ctx.stroke();
       ctx.restore();
 
-      // C. Slim Dark Offer Details Pill Badge at Very Outer Rim (NO Character Name, 100% Unobstructed Face!)
+      // C. Compact Dark Offer Pill at Outer Edge (ZERO Overlap with Face!)
       ctx.save();
       ctx.rotate(midAngle);
 
       let offerText = prize.name;
-      if (prize.name.includes("BETTER")) offerText = "BETTER LUCK NEXT TIME 🍃";
-      else if (prize.name.includes("2 MAGNETS")) offerText = "2 MAGNETS FOR ₹300 🧲";
-      else if (prize.name.includes("RAMEN")) offerText = "FRIEND PAYS RAMEN 🍜";
+      if (prize.name.includes("BETTER")) offerText = "NEXT TIME 🍃";
+      else if (prize.name.includes("2 MAGNETS")) offerText = "2 MAGNETS ₹300 🧲";
+      else if (prize.name.includes("RAMEN")) offerText = "RAMEN DEAL 🍜";
       else if (prize.name.includes("RE-SPIN")) offerText = "RE-SPIN CHAKRA 🌀";
-      else if (prize.name.includes("FREE")) offerText = "FREE PHOTO MAGNET 🍥";
+      else if (prize.name.includes("FREE")) offerText = "FREE MAGNET 🍥";
 
-      const bannerWidth = innerWheelRadius * 0.62;
-      const bannerHeight = 22;
-      const bannerX = innerWheelRadius - bannerWidth - 6;
+      const bannerWidth = innerWheelRadius * 0.46;
+      const bannerHeight = 20;
+      const bannerX = innerWheelRadius - bannerWidth - 4;
       const bannerY = -bannerHeight / 2;
 
       // Slim Dark Pill Background at Outer Edge
       ctx.beginPath();
       if (typeof (ctx as any).roundRect === "function") {
-        (ctx as any).roundRect(bannerX, bannerY, bannerWidth, bannerHeight, 11);
+        (ctx as any).roundRect(bannerX, bannerY, bannerWidth, bannerHeight, 10);
       } else {
         ctx.rect(bannerX, bannerY, bannerWidth, bannerHeight);
       }
-      ctx.fillStyle = "rgba(11, 13, 20, 0.9)";
+      ctx.fillStyle = "rgba(11, 13, 20, 0.92)";
       ctx.fill();
       ctx.lineWidth = 1.5;
       ctx.strokeStyle = "#FFD700";
       ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
-      ctx.shadowBlur = 6;
+      ctx.shadowBlur = 5;
       ctx.stroke();
 
       // Single Line Offer Details Text ONLY
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = "900 10px system-ui, -apple-system, sans-serif";
+      ctx.font = "900 9.5px system-ui, -apple-system, sans-serif";
       ctx.fillStyle = "#FFD700";
       ctx.shadowColor = "#000000";
       ctx.shadowBlur = 4;

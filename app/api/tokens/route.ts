@@ -8,6 +8,7 @@ import {
   getDbPrizes,
   updateDbPrizes,
   getAllRegistrations,
+  deleteRegistration,
 } from "@/lib/db";
 
 const ADMIN_PIN = process.env.ADMIN_PIN || "1234";
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { action, pin, code, note, count, prefix, prizes } = body;
+    const { action, pin, code, note, count, prefix, prizes, id } = body;
 
     if (pin !== ADMIN_PIN) {
       return NextResponse.json(
@@ -70,6 +71,14 @@ export async function POST(request: Request) {
       }
       const resetOk = resetToken(code);
       return NextResponse.json({ success: resetOk });
+    }
+
+    if (action === "delete_registration") {
+      if (!id) {
+        return NextResponse.json({ error: "Registration ID required." }, { status: 400 });
+      }
+      const deleteOk = deleteRegistration(id);
+      return NextResponse.json({ success: deleteOk, registrations: getAllRegistrations() });
     }
 
     if (action === "update_prizes") {
