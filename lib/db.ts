@@ -96,15 +96,21 @@ function writeDb(data: DatabaseSchema): void {
 }
 
 /**
- * Check if a phone number has ALREADY registered and used a spin before.
+ * Check if a 10-digit phone number has ALREADY registered and used a spin.
  */
 export function isPhoneAlreadyUsed(phone: string): { is_used: boolean; prize_won?: string; claimed_at?: string; token_code?: string } {
   const db = readDb();
-  const cleanPhone = phone.trim().replace(/\D/g, "");
-  if (!cleanPhone) return { is_used: false };
+  const digits = phone.trim().replace(/\D/g, "");
+  const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
+  if (!last10) return { is_used: false };
 
   // Check registrations
-  const reg = db.registrations.find((r) => r.phone.replace(/\D/g, "") === cleanPhone && r.prize_won);
+  const reg = db.registrations.find((r) => {
+    const rDigits = r.phone.replace(/\D/g, "");
+    const rLast10 = rDigits.length >= 10 ? rDigits.slice(-10) : rDigits;
+    return rLast10 === last10 && r.prize_won;
+  });
+
   if (reg) {
     return {
       is_used: true,
@@ -116,7 +122,13 @@ export function isPhoneAlreadyUsed(phone: string): { is_used: boolean; prize_won
 
   // Check tokens
   const tokenList = Object.values(db.tokens);
-  const matchedToken = tokenList.find((t) => t.phone && t.phone.replace(/\D/g, "") === cleanPhone && t.is_used);
+  const matchedToken = tokenList.find((t) => {
+    if (!t.phone || !t.is_used) return false;
+    const tDigits = t.phone.replace(/\D/g, "");
+    const tLast10 = tDigits.length >= 10 ? tDigits.slice(-10) : tDigits;
+    return tLast10 === last10;
+  });
+
   if (matchedToken) {
     return {
       is_used: true,
@@ -136,7 +148,6 @@ export function registerCustomerUser(
   const db = readDb();
   const cleanPhone = phone.trim().replace(/\D/g, "");
 
-  // Check Phone Usage Lock
   const phoneCheck = isPhoneAlreadyUsed(cleanPhone);
   if (phoneCheck.is_used) {
     return {
@@ -144,7 +155,7 @@ export function registerCustomerUser(
       is_used: true,
       prize_won: phoneCheck.prize_won,
       claimed_at: phoneCheck.claimed_at,
-      error: "This phone number has already used its single-use spin!",
+      error: "This phone number has already been registered and used its single-use spin!",
     };
   }
 

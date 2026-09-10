@@ -4,24 +4,17 @@ import React, { useEffect } from "react";
 import confetti from "canvas-confetti";
 import { Prize } from "@/lib/prizes";
 import { narutoAudio } from "@/lib/audio";
-import { generateWhatsAppLink } from "@/lib/utils";
-import { CheckCircle2, Scroll, X, MessageCircle } from "lucide-react";
+import { CheckCircle2, Scroll, X } from "lucide-react";
 
 interface ScrollModalProps {
   isOpen: boolean;
   prize: Prize | null;
-  tokenCode?: string;
-  claimedAt?: string;
-  phone?: string;
-  customerName?: string;
   onClose: () => void;
 }
 
 export const ScrollModal: React.FC<ScrollModalProps> = ({
   isOpen,
   prize,
-  phone,
-  customerName,
   onClose,
 }) => {
   useEffect(() => {
@@ -29,8 +22,8 @@ export const ScrollModal: React.FC<ScrollModalProps> = ({
       narutoAudio.playVictory();
       try {
         confetti({
-          particleCount: 90,
-          spread: 80,
+          particleCount: 95,
+          spread: 85,
           origin: { y: 0.6 },
           colors: ["#FF6B00", "#00F0FF", "#FFD700", "#E60000", "#E91E63"],
         });
@@ -39,8 +32,6 @@ export const ScrollModal: React.FC<ScrollModalProps> = ({
   }, [isOpen, prize]);
 
   if (!isOpen || !prize) return null;
-
-  const waLink = phone ? generateWhatsAppLink(phone, prize.name, customerName) : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
@@ -70,7 +61,7 @@ export const ScrollModal: React.FC<ScrollModalProps> = ({
           {/* Anime Character Display */}
           <div className="space-y-1">
             <div className="text-6xl my-1 animate-bounce">{prize.icon}</div>
-            <div className="inline-block px-3 py-1 text-xs font-black uppercase tracking-wider rounded-full bg-konoha-darkOrange text-white shadow-md">
+            <div className="inline-block px-3.5 py-1 text-xs font-black uppercase tracking-wider rounded-full bg-konoha-darkOrange text-white shadow-md">
               {prize.character || prize.badge}
             </div>
           </div>
@@ -80,25 +71,12 @@ export const ScrollModal: React.FC<ScrollModalProps> = ({
             <h2 className="text-2xl font-black text-konoha-darkOrange tracking-tight leading-tight">
               {prize.name}
             </h2>
-            <p className="text-sm font-medium text-[#4A3828] bg-[#FAF3E0] p-3 rounded-lg border border-[#D9C095] leading-relaxed">
+            <p className="text-sm font-medium text-[#4A3828] bg-[#FAF3E0] p-3.5 rounded-lg border border-[#D9C095] leading-relaxed">
               {prize.description}
             </p>
           </div>
 
-          {/* WhatsApp Thank You Link Button */}
-          {waLink && (
-            <a
-              href={waLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-wider text-white bg-green-600 hover:bg-green-500 shadow-md flex items-center justify-center gap-2 transition-all active:scale-95"
-            >
-              <MessageCircle className="w-4 h-4" />
-              <span>Send WhatsApp Thank You Message</span>
-            </a>
-          )}
-
-          {/* Claim Reward and Close Button */}
+          {/* Claim Reward & Close Button ONLY */}
           <div className="pt-2">
             <button
               onClick={onClose}

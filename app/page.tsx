@@ -57,8 +57,9 @@ function SpinnerPageContent() {
   }, [tokenParam]);
 
   // Fetch prizes & verify token status
+  // Fetch prizes & verify token status
   useEffect(() => {
-    if (!activeToken) return;
+    if (!activeToken || activeToken === "CLAIMED_LOCKED") return;
 
     setIsLoading(true);
     setErrorMessage("");
@@ -87,7 +88,15 @@ function SpinnerPageContent() {
           }
 
           const claimedState = data.is_used || localClaimed;
-          const finalPrize = data.prize_won || savedPrize;
+          let finalPrize = data.prize_won || savedPrize;
+
+          if (typeof finalPrize === "string") {
+            const matched = INITIAL_PRIZES.find(
+              (p) => p.name === finalPrize || p.id === finalPrize || p.character.includes(finalPrize as string)
+            );
+            finalPrize = matched || null;
+          }
+
           const isBonusRespin = finalPrize?.id === "re-spin-chakra";
 
           if (claimedState && !isBonusRespin) {
@@ -137,11 +146,23 @@ function SpinnerPageContent() {
       if (!res.ok || !data.success) {
         // Strict Phone Lock Check: If phone is already registered and used
         if (data.is_used) {
+          let matchedPrize: Prize | null = null;
+          if (data.prize_won) {
+            if (typeof data.prize_won === "string") {
+              matchedPrize =
+                INITIAL_PRIZES.find(
+                  (p) => p.name === data.prize_won || p.id === data.prize_won || p.character.includes(data.prize_won as string)
+                ) || null;
+            } else {
+              matchedPrize = data.prize_won;
+            }
+          }
+
           setIsUsed(true);
-          setPrizeWon(data.prize_won);
-          setClaimedAt(data.claimed_at);
+          setPrizeWon(matchedPrize);
+          setClaimedAt(data.claimed_at || new Date().toISOString());
           setTokenValid(true);
-          setActiveToken("USED_PHONE_LOCK");
+          setActiveToken("CLAIMED_LOCKED");
           return;
         }
 
@@ -149,6 +170,8 @@ function SpinnerPageContent() {
         return;
       }
 
+      setTokenValid(true);
+      setIsUsed(false);
       setActiveToken(data.token);
       if (typeof window !== "undefined") {
         localStorage.setItem("current_ninja_token", data.token);
@@ -181,9 +204,12 @@ function SpinnerPageContent() {
         setIsSpinning(false);
         if (data.is_used) {
           setIsUsed(true);
-          setPrizeWon(data.prize_won);
+          let matchedPrize = data.prize_won;
+          if (typeof matchedPrize === "string") {
+            matchedPrize = INITIAL_PRIZES.find((p) => p.name === matchedPrize || p.id === matchedPrize);
+          }
+          setPrizeWon(matchedPrize);
           setClaimedAt(data.claimed_at);
-          setWhatsappLink(data.whatsappLink);
           if (typeof window !== "undefined") {
             localStorage.setItem(`ninja_claimed_${activeToken}`, JSON.stringify({ prize: data.prize_won }));
           }
@@ -195,7 +221,6 @@ function SpinnerPageContent() {
 
       setTargetSliceIndex(data.sliceIndex);
       setWonPrize(data.prize);
-      setWhatsappLink(data.whatsappLink);
     } catch {
       setIsSpinning(false);
       setErrorMessage("Connection error during spin.");
@@ -219,12 +244,6 @@ function SpinnerPageContent() {
 
       if (wonPrize.id !== "re-spin-chakra") {
         setIsUsed(true);
-      }
-
-      if (whatsappLink) {
-        setTimeout(() => {
-          window.open(whatsappLink, "_blank");
-        }, 1500);
       }
     }
   };
@@ -401,8 +420,6 @@ function SpinnerPageContent() {
       <ScrollModal
         isOpen={showModal}
         prize={prizeWon}
-        phone={userPhone}
-        customerName={userName}
         onClose={() => setShowModal(false)}
       />
     </div>
