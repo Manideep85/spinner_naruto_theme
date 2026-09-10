@@ -42,6 +42,9 @@ export default function AdminPage() {
   const [masterQrDataUrl, setMasterQrDataUrl] = useState<string>("");
   const [copied, setCopied] = useState<boolean>(false);
 
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
   const [activeTab, setActiveTab] = useState<"master_qr" | "probabilities" | "registrations" | "tokens" | "logs">("master_qr");
 
   const fetchAdminData = (adminPin: string) => {
@@ -458,20 +461,20 @@ export default function AdminPage() {
       {/* Tab 3: Customer Database & CSV Export */}
       {activeTab === "registrations" && (
         <div className="bg-konoha-cardBg border border-gray-800 rounded-2xl p-4 sm:p-6 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-extrabold uppercase tracking-wider text-gray-300 flex items-center gap-2">
                 <Users className="w-4 h-4 text-konoha-cyan" />
                 Customer Phone Database ({registrations.length})
               </h2>
               <p className="text-xs text-gray-400">
-                Registered customer phone numbers & automated WhatsApp thank you logs.
+                Registered customer phone numbers & automated WhatsApp thank you logs. Sorted by latest registration time.
               </p>
             </div>
             {registrations.length > 0 && (
               <button
                 onClick={exportRegistrationsCsv}
-                className="py-2 px-4 bg-gradient-to-r from-konoha-orange to-konoha-gold hover:from-konoha-orangeLight hover:to-konoha-gold text-black font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md flex items-center gap-1.5 transition-all active:scale-95"
+                className="py-2 px-4 bg-gradient-to-r from-konoha-orange to-konoha-gold hover:from-konoha-orangeLight hover:to-konoha-gold text-black font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md flex items-center gap-1.5 transition-all active:scale-95 self-start sm:self-auto"
               >
                 <Download className="w-4 h-4" />
                 <span>Export to Excel (.csv)</span>
@@ -487,60 +490,125 @@ export default function AdminPage() {
                   <th className="p-3">Phone Number</th>
                   <th className="p-3">Prize Won</th>
                   <th className="p-3">Discount / Offer</th>
-                  <th className="p-3">Registration Time</th>
+                  <th className="p-3">Registration Time (DESC)</th>
                   <th className="p-3">Status</th>
                   <th className="p-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800/60">
-                {registrations.map((r) => {
-                  let discountText = r.prize_won || "None";
-                  if (r.prize_won) {
-                    if (r.prize_won.includes("5%")) discountText = "5% OFF";
-                    else if (r.prize_won.includes("10%")) discountText = "10% OFF";
-                    else if (r.prize_won.includes("20")) discountText = "₹20 OFF";
-                    else if (r.prize_won.includes("MAGNETS")) discountText = "2 Magnets for ₹300";
-                    else if (r.prize_won.includes("RAMEN")) discountText = "Ramen Deal";
-                    else if (r.prize_won.includes("RE-SPIN")) discountText = "Bonus Re-Spin";
-                    else if (r.prize_won.includes("FREE")) discountText = "Free Magnet";
-                    else if (r.prize_won.includes("BETTER")) discountText = "Better Luck Next Time";
+                {(() => {
+                  const sortedRegs = [...registrations].sort(
+                    (a, b) => new Date(b.registered_at).getTime() - new Date(a.registered_at).getTime()
+                  );
+                  const total = sortedRegs.length;
+                  const totalPages = Math.ceil(total / pageSize) || 1;
+                  const validPage = Math.min(currentPage, totalPages);
+                  const paginated = sortedRegs.slice((validPage - 1) * pageSize, validPage * pageSize);
+
+                  if (paginated.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={7} className="p-6 text-center text-gray-500 font-sans text-xs">
+                          No customer registrations recorded yet.
+                        </td>
+                      </tr>
+                    );
                   }
 
-                  return (
-                    <tr key={r.id} className="hover:bg-gray-900/40">
-                      <td className="p-3 font-bold text-white">{r.name || "Shinobi Customer"}</td>
-                      <td className="p-3 text-konoha-cyan font-bold">{r.phone}</td>
-                      <td className="p-3 text-konoha-gold font-bold">{r.prize_won || "—"}</td>
-                      <td className="p-3 text-green-400 font-bold">{discountText}</td>
-                      <td className="p-3 text-gray-400">
-                        {new Date(r.registered_at).toLocaleString()}
-                      </td>
-                      <td className="p-3">
-                        {r.prize_won ? (
-                          <span className="inline-flex items-center gap-1 py-0.5 px-2 bg-green-950 text-green-400 border border-green-800 rounded text-[10px]">
-                            CLAIMED
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 py-0.5 px-2 bg-yellow-950 text-yellow-400 border border-yellow-800 rounded text-[10px]">
-                            REGISTERED
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3 text-right">
-                        <button
-                          onClick={() => handleDeleteRegistration(r.id, r.name || r.phone)}
-                          className="p-1.5 bg-red-950/80 hover:bg-red-900 text-red-400 border border-red-800 rounded-lg transition-all"
-                          title="Delete Registration Record"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                  return paginated.map((r) => {
+                    let discountText = r.prize_won || "None";
+                    if (r.prize_won) {
+                      if (r.prize_won.includes("5%")) discountText = "5% OFF";
+                      else if (r.prize_won.includes("10%")) discountText = "10% OFF";
+                      else if (r.prize_won.includes("20")) discountText = "₹20 OFF";
+                      else if (r.prize_won.includes("MAGNETS")) discountText = "2 Magnets for ₹300";
+                      else if (r.prize_won.includes("RAMEN")) discountText = "Ramen Deal";
+                      else if (r.prize_won.includes("RE-SPIN")) discountText = "Bonus Re-Spin";
+                      else if (r.prize_won.includes("FREE")) discountText = "Free Magnet";
+                      else if (r.prize_won.includes("BETTER")) discountText = "Better Luck Next Time";
+                    }
+
+                    return (
+                      <tr key={r.id} className="hover:bg-gray-900/40">
+                        <td className="p-3 font-bold text-white">{r.name || "Shinobi Customer"}</td>
+                        <td className="p-3 text-konoha-cyan font-bold">{r.phone}</td>
+                        <td className="p-3 text-konoha-gold font-bold">{r.prize_won || "—"}</td>
+                        <td className="p-3 text-green-400 font-bold">{discountText}</td>
+                        <td className="p-3 text-gray-400">
+                          {new Date(r.registered_at).toLocaleString()}
+                        </td>
+                        <td className="p-3">
+                          {r.prize_won ? (
+                            <span className="inline-flex items-center gap-1 py-0.5 px-2 bg-green-950 text-green-400 border border-green-800 rounded text-[10px]">
+                              CLAIMED
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 py-0.5 px-2 bg-yellow-950 text-yellow-400 border border-yellow-800 rounded text-[10px]">
+                              REGISTERED
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3 text-right">
+                          <button
+                            onClick={() => handleDeleteRegistration(r.id, r.name || r.phone)}
+                            className="p-1.5 bg-red-950/80 hover:bg-red-900 text-red-400 border border-red-800 rounded-lg transition-all"
+                            title="Delete Registration Record"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  });
+                })()}
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {registrations.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-gray-800 text-xs font-mono text-gray-400">
+              <div className="flex items-center gap-2">
+                <span>
+                  Showing {Math.min((currentPage - 1) * pageSize + 1, registrations.length)} to{" "}
+                  {Math.min(currentPage * pageSize, registrations.length)} of {registrations.length} entries
+                </span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="bg-black/60 border border-gray-800 text-white rounded px-2 py-1 focus:outline-none"
+                >
+                  <option value={10}>10 / page</option>
+                  <option value={25}>25 / page</option>
+                  <option value={50}>50 / page</option>
+                  <option value={100}>100 / page</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="px-3 py-1.5 rounded-lg bg-gray-900 border border-gray-800 hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold"
+                >
+                  Previous
+                </button>
+                <span className="px-3 py-1.5 font-bold text-konoha-gold bg-black/40 rounded-lg border border-gray-800">
+                  Page {currentPage} of {Math.ceil(registrations.length / pageSize) || 1}
+                </span>
+                <button
+                  disabled={currentPage >= Math.ceil(registrations.length / pageSize)}
+                  onClick={() => setCurrentPage((p) => Math.min(Math.ceil(registrations.length / pageSize), p + 1))}
+                  className="px-3 py-1.5 rounded-lg bg-gray-900 border border-gray-800 hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -70,31 +70,70 @@ function ensureDbDirectory() {
 function readDb(): DatabaseSchema {
   try {
     ensureDbDirectory();
+    let loaded: Partial<DatabaseSchema> = {};
+
     if (fs.existsSync(DB_FILE)) {
-      const data = fs.readFileSync(DB_FILE, "utf-8");
-      const parsed = JSON.parse(data);
-      inMemoryDb = {
-        tokens: parsed.tokens || DEFAULT_TOKENS,
-        logs: parsed.logs || [],
-        prizes: parsed.prizes || INITIAL_PRIZES,
-        registrations: parsed.registrations || [],
-      };
-      return inMemoryDb;
-    } else if (fs.existsSync(SEED_DB_FILE)) {
-      const seedData = fs.readFileSync(SEED_DB_FILE, "utf-8");
-      const parsed = JSON.parse(seedData);
-      inMemoryDb = {
-        tokens: parsed.tokens || DEFAULT_TOKENS,
-        logs: parsed.logs || [],
-        prizes: parsed.prizes || INITIAL_PRIZES,
-        registrations: parsed.registrations || [],
-      };
-      writeDb(inMemoryDb);
-      return inMemoryDb;
-    } else {
-      writeDb(inMemoryDb);
-      return inMemoryDb;
+      try {
+        const data = fs.readFileSync(DB_FILE, "utf-8");
+        const parsed = JSON.parse(data);
+        if (parsed) loaded = parsed;
+      } catch {}
     }
+
+    let seedLoaded: Partial<DatabaseSchema> = {};
+    if (fs.existsSync(SEED_DB_FILE)) {
+      try {
+        const seedData = fs.readFileSync(SEED_DB_FILE, "utf-8");
+        const parsedSeed = JSON.parse(seedData);
+        if (parsedSeed) seedLoaded = parsedSeed;
+      } catch {}
+    }
+
+    const mergedTokens = {
+      ...(seedLoaded.tokens || {}),
+      ...(loaded.tokens || {}),
+      ...inMemoryDb.tokens,
+    };
+
+    const regMap = new Map<string, CustomerRegistration>();
+    [
+      ...(seedLoaded.registrations || []),
+      ...(loaded.registrations || []),
+      ...inMemoryDb.registrations,
+    ].forEach((r) => {
+      if (r && r.id) {
+        const existing = regMap.get(r.id);
+        if (!existing || (r.prize_won && !existing.prize_won)) {
+          regMap.set(r.id, r);
+        }
+      }
+    });
+
+    const logMap = new Map<string, SpinLog>();
+    [
+      ...(seedLoaded.logs || []),
+      ...(loaded.logs || []),
+      ...inMemoryDb.logs,
+    ].forEach((l) => {
+      if (l && l.id) logMap.set(l.id, l);
+    });
+
+    const mergedRegistrations = Array.from(regMap.values()).sort(
+      (a, b) => new Date(b.registered_at).getTime() - new Date(a.registered_at).getTime()
+    );
+
+    const mergedLogs = Array.from(logMap.values()).sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
+    inMemoryDb = {
+      tokens: mergedTokens,
+      logs: mergedLogs,
+      prizes: loaded.prizes || seedLoaded.prizes || inMemoryDb.prizes || INITIAL_PRIZES,
+      registrations: mergedRegistrations,
+    };
+
+    return inMemoryDb;
   } catch {
     return inMemoryDb;
   }
@@ -106,10 +145,16 @@ function writeDb(data: DatabaseSchema): void {
     ensureDbDirectory();
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), "utf-8");
   } catch {}
+  try {
+    if (fs.existsSync(SEED_DB_FILE)) {
+      fs.writeFileSync(SEED_DB_FILE, JSON.stringify(data, null, 2), "utf-8");
+    }
+  } catch {}
 }
 
 /**
- * Check if a 10-digit phone number has ALREADY registered and used a spin.
+ * Check if a 10-digit phone number has ALREADY registered or used a spin.
+ * STRICT SINGLE-USE LOCK: Returns true immediately if phone is found in registrations or tokens.
  */
 export function isPhoneAlreadyUsed(phone: string): { is_used: boolean; prize_won?: string; claimed_at?: string; token_code?: string } {
   const db = readDb();
@@ -117,17 +162,17 @@ export function isPhoneAlreadyUsed(phone: string): { is_used: boolean; prize_won
   const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
   if (!last10) return { is_used: false };
 
-  // Check registrations
+  // Check registrations (ANY record matching phone means phone is locked!)
   const reg = db.registrations.find((r) => {
     const rDigits = r.phone.replace(/\D/g, "");
     const rLast10 = rDigits.length >= 10 ? rDigits.slice(-10) : rDigits;
-    return rLast10 === last10 && (r.prize_won || r.claimed_at);
+    return rLast10 === last10;
   });
 
   if (reg) {
     return {
       is_used: true,
-      prize_won: reg.prize_won || "Reward Claimed",
+      prize_won: reg.prize_won || "Registration Recorded",
       claimed_at: reg.claimed_at || reg.registered_at,
       token_code: reg.token_code,
     };
@@ -139,14 +184,14 @@ export function isPhoneAlreadyUsed(phone: string): { is_used: boolean; prize_won
     if (!t.phone) return false;
     const tDigits = t.phone.replace(/\D/g, "");
     const tLast10 = tDigits.length >= 10 ? tDigits.slice(-10) : tDigits;
-    return tLast10 === last10 && t.is_used;
+    return tLast10 === last10;
   });
 
   if (matchedToken) {
     return {
       is_used: true,
-      prize_won: matchedToken.prize_won?.name || "Reward Claimed",
-      claimed_at: matchedToken.claimed_at,
+      prize_won: matchedToken.prize_won?.name || "Registration Recorded",
+      claimed_at: matchedToken.claimed_at || matchedToken.created_at,
       token_code: matchedToken.code,
     };
   }
