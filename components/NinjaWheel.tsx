@@ -133,8 +133,8 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
     const height = canvas.height;
     const centerX = width / 2;
     const centerY = height / 2;
-    const outerRadius = Math.min(centerX, centerY) - 8;
-    const innerWheelRadius = outerRadius - 18;
+    const outerRadius = Math.min(centerX, centerY) - 10;
+    const innerWheelRadius = outerRadius - 20;
 
     ctx.clearRect(0, 0, width, height);
 
@@ -144,10 +144,10 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
     ctx.arc(centerX, centerY, outerRadius, 0, Math.PI * 2);
     ctx.fillStyle = "#0B0D14";
     ctx.fill();
-    ctx.lineWidth = 6;
+    ctx.lineWidth = 7;
     ctx.strokeStyle = "#FF6B00";
-    ctx.shadowColor = `rgba(255, 107, 0, ${0.4 + Math.sin((pulseGlow * Math.PI) / 180) * 0.2})`;
-    ctx.shadowBlur = 20;
+    ctx.shadowColor = `rgba(255, 107, 0, ${0.5 + Math.sin((pulseGlow * Math.PI) / 180) * 0.25})`;
+    ctx.shadowBlur = 25;
     ctx.stroke();
     ctx.restore();
 
@@ -171,7 +171,7 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
 
       const charImg = loadedImagesRef.current[charKey];
 
-      // 1. Clip everything in this slice sector to the wedge shape
+      // A. Clip everything in this slice sector to the wedge shape
       ctx.save();
       ctx.beginPath();
       ctx.moveTo(0, 0);
@@ -179,11 +179,11 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       ctx.closePath();
       ctx.clip();
 
-      // Dual-tone radial background gradient
-      const grad = ctx.createRadialGradient(0, 0, 15, 0, 0, innerWheelRadius);
-      grad.addColorStop(0, "#121520");
-      grad.addColorStop(0.4, prize.color);
-      grad.addColorStop(1, "#07090E");
+      // Background gradient
+      const grad = ctx.createRadialGradient(0, 0, 20, 0, 0, innerWheelRadius);
+      grad.addColorStop(0, "#0F121C");
+      grad.addColorStop(0.45, prize.color);
+      grad.addColorStop(1, "#07080D");
       ctx.fillStyle = grad;
       ctx.fill();
 
@@ -193,76 +193,83 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       drawClanWatermark(ctx, prize.character || prize.name, innerWheelRadius);
       ctx.restore();
 
-      // Draw Character Artwork Image Filling the Slice Sector Wedge
+      // Draw Character Artwork Image (Positioned towards center so face is clear)
       if (charImg && charImg.complete && charImg.naturalWidth > 0) {
         ctx.save();
         ctx.rotate(midAngle);
 
-        const imgSize = innerWheelRadius * 1.35;
-        const imgX = innerWheelRadius * 0.15;
+        const imgSize = innerWheelRadius * 1.15;
+        const imgX = innerWheelRadius * 0.08;
         const imgY = -imgSize / 2;
 
         ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 8;
         ctx.drawImage(charImg, imgX, imgY, imgSize, imgSize);
         ctx.restore();
       }
 
-      ctx.restore(); // <--- End sector wedge clip
+      ctx.restore(); // End sector wedge clip
 
-      // 2. Gold Scroll Divider Line
+      // B. Gold Scroll Divider Line
       ctx.save();
       ctx.beginPath();
       ctx.moveTo(0, 0);
       ctx.lineTo(Math.cos(startAngle) * innerWheelRadius, Math.sin(startAngle) * innerWheelRadius);
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 3;
       ctx.strokeStyle = "#FFD700";
       ctx.shadowColor = "rgba(0,0,0,0.8)";
       ctx.shadowBlur = 4;
       ctx.stroke();
       ctx.restore();
 
-      // 3. Draw Character Name & Prize Subtext in Bold Anime Typography
+      // C. High-Contrast Dark Text Banner at Outer Rim (100% Legibility)
       ctx.save();
       ctx.rotate(midAngle);
 
-      ctx.textAlign = "right";
+      const bannerWidth = innerWheelRadius * 0.52;
+      const bannerHeight = 36;
+      const bannerX = innerWheelRadius - bannerWidth - 8;
+      const bannerY = -bannerHeight / 2;
+
+      // Dark Banner Background
+      ctx.beginPath();
+      if (typeof (ctx as any).roundRect === "function") {
+        (ctx as any).roundRect(bannerX, bannerY, bannerWidth, bannerHeight, 6);
+      } else {
+        ctx.rect(bannerX, bannerY, bannerWidth, bannerHeight);
+      }
+      ctx.fillStyle = "rgba(11, 13, 20, 0.88)";
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = "#FFD700";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
+      ctx.shadowBlur = 6;
+      ctx.stroke();
+
+      // Text Alignment & Styles inside Banner
+      ctx.textAlign = "center";
       ctx.textBaseline = "middle";
 
-      // Character Name (e.g. SAKURA, JIRAIYA, GAARA, PAIN, ROCK LEE, SASUKE, ITACHI, NARUTO)
+      // Line 1: Character Name (e.g. SAKURA, JIRAIYA, GAARA, PAIN, ROCK LEE, SASUKE, ITACHI, NARUTO)
       ctx.font = "900 13px system-ui, -apple-system, sans-serif";
       ctx.fillStyle = "#FFFFFF";
       ctx.shadowColor = "#000000";
-      ctx.shadowBlur = 8;
-      ctx.shadowOffsetX = 1.5;
-      ctx.shadowOffsetY = 1.5;
-      ctx.fillText(firstName, innerWheelRadius - 22, -6);
+      ctx.shadowBlur = 4;
+      ctx.fillText(firstName, bannerX + bannerWidth / 2, -6);
 
-      // Prize Short Subtext
-      let subtext = prize.name.split(" ")[0];
-      if (prize.name.includes("%")) {
-        subtext = prize.name.match(/\d+%/)?.[0] || subtext;
-      } else if (prize.name.includes("₹")) {
-        subtext = prize.name.match(/₹\d+/)?.[0] || subtext;
-      } else if (prize.name.includes("MAGNETS")) {
-        subtext = "2 MAGNETS";
-      } else if (prize.name.includes("BETTER")) {
-        subtext = "NEXT TIME 🍃";
-      } else if (prize.name.includes("RAMEN")) {
-        subtext = "RAMEN 🍜";
-      } else if (prize.name.includes("RE-SPIN")) {
-        subtext = "RE-SPIN 🌀";
-      } else if (prize.name.includes("FREE")) {
-        subtext = "FREE MAGNET";
-      }
+      // Line 2: Full Prize Wording Subtext
+      let subtext = prize.name;
+      if (prize.name.includes("BETTER")) subtext = "NEXT TIME 🍃";
+      else if (prize.name.includes("2 MAGNETS")) subtext = "2 MAGNETS ₹300";
+      else if (prize.name.includes("RAMEN")) subtext = "RAMEN DEAL 🍜";
+      else if (prize.name.includes("RE-SPIN")) subtext = "RE-SPIN CHAKRA 🌀";
+      else if (prize.name.includes("FREE")) subtext = "FREE MAGNET 🍥";
 
-      ctx.font = "800 9px sans-serif";
+      ctx.font = "800 9.5px system-ui, sans-serif";
       ctx.fillStyle = "#FFD700";
       ctx.shadowColor = "#000000";
-      ctx.shadowBlur = 6;
-      ctx.shadowOffsetX = 1;
-      ctx.shadowOffsetY = 1;
-      ctx.fillText(subtext, innerWheelRadius - 22, 8);
+      ctx.shadowBlur = 4;
+      ctx.fillText(subtext, bannerX + bannerWidth / 2, 8);
 
       ctx.restore();
     }
@@ -272,7 +279,7 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
     ctx.save();
     ctx.beginPath();
     ctx.arc(centerX, centerY, innerWheelRadius, 0, Math.PI * 2);
-    ctx.lineWidth = 5;
+    ctx.lineWidth = 6;
     ctx.strokeStyle = "#FFD700";
     ctx.stroke();
 
@@ -291,7 +298,7 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       const ry = centerY + Math.sin(rAngle) * rivetRadius;
 
       ctx.beginPath();
-      ctx.arc(rx, ry, 3.5, 0, Math.PI * 2);
+      ctx.arc(rx, ry, 4, 0, Math.PI * 2);
       ctx.fillStyle = "#FFD700";
       ctx.fill();
       ctx.lineWidth = 1;
@@ -306,44 +313,44 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
 
     // Center Gold Outer Ring
     ctx.beginPath();
-    ctx.arc(0, 0, 42, 0, Math.PI * 2);
+    ctx.arc(0, 0, 48, 0, Math.PI * 2);
     ctx.fillStyle = "#0B0D14";
     ctx.fill();
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 5;
     ctx.strokeStyle = "#FFD700";
     ctx.shadowColor = "#FF6B00";
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 15;
     ctx.stroke();
 
     // Inner Red Glossy Circle
-    const redGrad = ctx.createRadialGradient(-5, -5, 5, 0, 0, 36);
+    const redGrad = ctx.createRadialGradient(-6, -6, 6, 0, 0, 42);
     redGrad.addColorStop(0, "#FF3333");
     redGrad.addColorStop(0.7, "#CC0000");
     redGrad.addColorStop(1, "#660000");
 
     ctx.beginPath();
-    ctx.arc(0, 0, 36, 0, Math.PI * 2);
+    ctx.arc(0, 0, 42, 0, Math.PI * 2);
     ctx.fillStyle = redGrad;
     ctx.fill();
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.5;
     ctx.strokeStyle = "#FFAA00";
     ctx.stroke();
 
     // Konoha Leaf Symbol in Center Button
     ctx.beginPath();
-    ctx.arc(0, -10, 8, 0, Math.PI * 1.5);
+    ctx.arc(0, -12, 9, 0, Math.PI * 1.5);
     ctx.lineWidth = 2.5;
     ctx.strokeStyle = "#FFFFFF";
     ctx.stroke();
 
     // Text "SPIN!"
-    ctx.font = "900 13px system-ui, sans-serif";
+    ctx.font = "900 14px system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillStyle = "#FFFFFF";
     ctx.shadowColor = "#000000";
     ctx.shadowBlur = 6;
-    ctx.fillText(isSpinning ? "SPINNING" : "SPIN!", 0, 9);
+    ctx.fillText(isSpinning ? "SPINNING" : "SPIN!", 0, 10);
 
     ctx.restore();
 
@@ -351,23 +358,23 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
     ctx.save();
     ctx.translate(centerX, centerY - outerRadius - 4);
     ctx.beginPath();
-    ctx.moveTo(-18, -20);
-    ctx.lineTo(18, -20);
-    ctx.lineTo(0, 16);
+    ctx.moveTo(-20, -22);
+    ctx.lineTo(20, -22);
+    ctx.lineTo(0, 18);
     ctx.closePath();
     ctx.fillStyle = "#FFD700";
     ctx.fill();
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 3.5;
     ctx.strokeStyle = "#B88A44";
     ctx.shadowColor = "#FF6B00";
-    ctx.shadowBlur = 15;
+    ctx.shadowBlur = 18;
     ctx.stroke();
 
     // Pointer Inner Highlight
     ctx.beginPath();
-    ctx.moveTo(-10, -16);
-    ctx.lineTo(10, -16);
-    ctx.lineTo(0, 10);
+    ctx.moveTo(-12, -18);
+    ctx.lineTo(12, -18);
+    ctx.lineTo(0, 11);
     ctx.closePath();
     ctx.fillStyle = "#FFF099";
     ctx.fill();
@@ -446,19 +453,19 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
   };
 
   return (
-    <div className="relative flex flex-col items-center justify-center p-2">
+    <div className="relative flex flex-col items-center justify-center p-2 w-full">
       <div className="relative group">
         <canvas
           ref={canvasRef}
-          width={380}
-          height={380}
-          className="w-[320px] h-[320px] sm:w-[380px] sm:h-[380px] drop-shadow-[0_0_35px_rgba(255,107,0,0.6)]"
+          width={460}
+          height={460}
+          className="w-[340px] h-[340px] sm:w-[440px] sm:h-[440px] drop-shadow-[0_0_40px_rgba(255,107,0,0.6)]"
         />
 
         <button
           onClick={handleButtonClick}
           disabled={isSpinning || disabled}
-          className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full font-black text-xs uppercase tracking-wider shadow-2xl transition-all duration-300 flex flex-col items-center justify-center z-10 opacity-0 ${
+          className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-28 h-28 rounded-full font-black text-xs uppercase tracking-wider shadow-2xl transition-all duration-300 flex flex-col items-center justify-center z-10 opacity-0 ${
             isSpinning || disabled ? "cursor-not-allowed" : "cursor-pointer hover:scale-105"
           }`}
           title="Click to Spin the Wheel"

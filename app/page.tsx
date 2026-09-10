@@ -301,7 +301,7 @@ function SpinnerPageContent() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between p-3 sm:p-6 max-w-lg mx-auto">
+    <div className="min-h-screen flex flex-col justify-between p-2 sm:p-6 max-w-xl mx-auto">
       {/* Header Bar (NO TOKEN CODES DISPLAYED FOR SECURITY) */}
       <header className="flex items-center justify-between py-2 border-b border-konoha-border/60">
         <div className="flex items-center gap-2">
