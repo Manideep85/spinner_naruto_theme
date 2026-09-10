@@ -193,16 +193,16 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       drawClanWatermark(ctx, prize.character || prize.name, innerWheelRadius);
       ctx.restore();
 
-      // Draw Character Artwork Image (Positioned towards center so face is clear)
+      // Draw Character Artwork Image (Unobstructed in center of slice wedge)
       if (charImg && charImg.complete && charImg.naturalWidth > 0) {
         ctx.save();
         ctx.rotate(midAngle);
 
-        const imgSize = innerWheelRadius * 1.15;
-        const imgX = innerWheelRadius * 0.08;
+        const imgSize = innerWheelRadius * 1.25;
+        const imgX = innerWheelRadius * 0.05;
         const imgY = -imgSize / 2;
 
-        ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
+        ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
         ctx.shadowBlur = 8;
         ctx.drawImage(charImg, imgX, imgY, imgSize, imgSize);
         ctx.restore();
@@ -222,23 +222,30 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       ctx.stroke();
       ctx.restore();
 
-      // C. High-Contrast Dark Text Banner at Outer Rim (100% Legibility)
+      // C. Slim Dark Offer Details Pill Badge at Very Outer Rim (NO Character Name, 100% Unobstructed Face!)
       ctx.save();
       ctx.rotate(midAngle);
 
-      const bannerWidth = innerWheelRadius * 0.52;
-      const bannerHeight = 36;
-      const bannerX = innerWheelRadius - bannerWidth - 8;
+      let offerText = prize.name;
+      if (prize.name.includes("BETTER")) offerText = "BETTER LUCK NEXT TIME 🍃";
+      else if (prize.name.includes("2 MAGNETS")) offerText = "2 MAGNETS FOR ₹300 🧲";
+      else if (prize.name.includes("RAMEN")) offerText = "FRIEND PAYS RAMEN 🍜";
+      else if (prize.name.includes("RE-SPIN")) offerText = "RE-SPIN CHAKRA 🌀";
+      else if (prize.name.includes("FREE")) offerText = "FREE PHOTO MAGNET 🍥";
+
+      const bannerWidth = innerWheelRadius * 0.62;
+      const bannerHeight = 22;
+      const bannerX = innerWheelRadius - bannerWidth - 6;
       const bannerY = -bannerHeight / 2;
 
-      // Dark Banner Background
+      // Slim Dark Pill Background at Outer Edge
       ctx.beginPath();
       if (typeof (ctx as any).roundRect === "function") {
-        (ctx as any).roundRect(bannerX, bannerY, bannerWidth, bannerHeight, 6);
+        (ctx as any).roundRect(bannerX, bannerY, bannerWidth, bannerHeight, 11);
       } else {
         ctx.rect(bannerX, bannerY, bannerWidth, bannerHeight);
       }
-      ctx.fillStyle = "rgba(11, 13, 20, 0.88)";
+      ctx.fillStyle = "rgba(11, 13, 20, 0.9)";
       ctx.fill();
       ctx.lineWidth = 1.5;
       ctx.strokeStyle = "#FFD700";
@@ -246,30 +253,14 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       ctx.shadowBlur = 6;
       ctx.stroke();
 
-      // Text Alignment & Styles inside Banner
+      // Single Line Offer Details Text ONLY
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-
-      // Line 1: Character Name (e.g. SAKURA, JIRAIYA, GAARA, PAIN, ROCK LEE, SASUKE, ITACHI, NARUTO)
-      ctx.font = "900 13px system-ui, -apple-system, sans-serif";
-      ctx.fillStyle = "#FFFFFF";
-      ctx.shadowColor = "#000000";
-      ctx.shadowBlur = 4;
-      ctx.fillText(firstName, bannerX + bannerWidth / 2, -6);
-
-      // Line 2: Full Prize Wording Subtext
-      let subtext = prize.name;
-      if (prize.name.includes("BETTER")) subtext = "NEXT TIME 🍃";
-      else if (prize.name.includes("2 MAGNETS")) subtext = "2 MAGNETS ₹300";
-      else if (prize.name.includes("RAMEN")) subtext = "RAMEN DEAL 🍜";
-      else if (prize.name.includes("RE-SPIN")) subtext = "RE-SPIN CHAKRA 🌀";
-      else if (prize.name.includes("FREE")) subtext = "FREE MAGNET 🍥";
-
-      ctx.font = "800 9.5px system-ui, sans-serif";
+      ctx.font = "900 10px system-ui, -apple-system, sans-serif";
       ctx.fillStyle = "#FFD700";
       ctx.shadowColor = "#000000";
       ctx.shadowBlur = 4;
-      ctx.fillText(subtext, bannerX + bannerWidth / 2, 8);
+      ctx.fillText(offerText, bannerX + bannerWidth / 2, 0);
 
       ctx.restore();
     }

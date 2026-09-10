@@ -57,7 +57,29 @@ export const AlreadyClaimedCard: React.FC<AlreadyClaimedCardProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-3xl">{prizeWon.icon}</span>
+            <div className="w-12 h-12 rounded-full border-2 border-konoha-gold overflow-hidden flex-shrink-0 bg-black">
+              <img
+                src={
+                  (prizeWon.character || prizeWon.name).toLowerCase().includes("sakura")
+                    ? "/images/characters/sakura.jpg"
+                    : (prizeWon.character || prizeWon.name).toLowerCase().includes("jiraiya")
+                    ? "/images/characters/jiraiya.jpg"
+                    : (prizeWon.character || prizeWon.name).toLowerCase().includes("gaara")
+                    ? "/images/characters/gaara.jpg"
+                    : (prizeWon.character || prizeWon.name).toLowerCase().includes("pain")
+                    ? "/images/characters/pain.jpg"
+                    : (prizeWon.character || prizeWon.name).toLowerCase().includes("lee")
+                    ? "/images/characters/rock_lee.jpg"
+                    : (prizeWon.character || prizeWon.name).toLowerCase().includes("sasuke")
+                    ? "/images/characters/sasuke.jpg"
+                    : (prizeWon.character || prizeWon.name).toLowerCase().includes("itachi")
+                    ? "/images/characters/itachi.jpg"
+                    : "/images/characters/naruto.jpg"
+                }
+                alt={prizeWon.name}
+                className="w-full h-full object-cover"
+              />
+            </div>
             <div>
               <div className="font-extrabold text-base text-konoha-orange">
                 {prizeWon.name}

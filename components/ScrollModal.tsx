@@ -33,6 +33,18 @@ export const ScrollModal: React.FC<ScrollModalProps> = ({
 
   if (!isOpen || !prize) return null;
 
+  const getCharacterImagePath = (p: Prize): string => {
+    const char = (p.character || p.name).toLowerCase();
+    if (char.includes("sakura")) return "/images/characters/sakura.jpg";
+    if (char.includes("jiraiya")) return "/images/characters/jiraiya.jpg";
+    if (char.includes("gaara")) return "/images/characters/gaara.jpg";
+    if (char.includes("pain")) return "/images/characters/pain.jpg";
+    if (char.includes("lee")) return "/images/characters/rock_lee.jpg";
+    if (char.includes("sasuke")) return "/images/characters/sasuke.jpg";
+    if (char.includes("itachi")) return "/images/characters/itachi.jpg";
+    return "/images/characters/naruto.jpg";
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
       <div className="relative w-full max-w-sm bg-[#FBEFD5] border-8 border-[#B88A44] rounded-2xl shadow-[0_0_50px_rgba(255,107,0,0.6)] overflow-hidden text-[#3A2818] transform animate-scroll-unroll">
@@ -58,10 +70,16 @@ export const ScrollModal: React.FC<ScrollModalProps> = ({
             <Scroll className="w-5 h-5 text-konoha-darkOrange" />
           </div>
 
-          {/* Anime Character Display */}
-          <div className="space-y-1">
-            <div className="text-6xl my-1 animate-bounce">{prize.icon}</div>
-            <div className="inline-block px-3.5 py-1 text-xs font-black uppercase tracking-wider rounded-full bg-konoha-darkOrange text-white shadow-md">
+          {/* Anime Character Portrait Image */}
+          <div className="flex flex-col items-center justify-center space-y-2 my-2">
+            <div className="relative w-28 h-28 rounded-full border-4 border-[#B88A44] shadow-[0_0_25px_rgba(255,107,0,0.5)] overflow-hidden bg-black/40">
+              <img
+                src={getCharacterImagePath(prize)}
+                alt={prize.character || prize.name}
+                className="w-full h-full object-cover transform hover:scale-105 transition-transform"
+              />
+            </div>
+            <div className="inline-block px-4 py-1 text-xs font-black uppercase tracking-wider rounded-full bg-konoha-darkOrange text-white shadow-md">
               {prize.character || prize.badge}
             </div>
           </div>
