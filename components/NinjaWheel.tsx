@@ -193,18 +193,47 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       drawClanWatermark(ctx, prize.character || prize.name, innerWheelRadius);
       ctx.restore();
 
-      // Draw Character Artwork Image (Positioned in inner wedge so face is 100% unobstructed)
+      // Draw Character Medallion Badge (Positioned at inner-mid radius, 100% clean circular clip)
       if (charImg && charImg.complete && charImg.naturalWidth > 0) {
         ctx.save();
         ctx.rotate(midAngle);
 
-        const imgSize = innerWheelRadius * 0.96;
-        const imgX = innerWheelRadius * 0.04;
-        const imgY = -imgSize / 2;
+        const charCenterX = innerWheelRadius * 0.38;
+        const charRadius = innerWheelRadius * 0.26;
 
-        ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
-        ctx.shadowBlur = 8;
-        ctx.drawImage(charImg, imgX, imgY, imgSize, imgSize);
+        // A. Dark shadow behind medallion
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(charCenterX, 0, charRadius, 0, Math.PI * 2);
+        ctx.shadowColor = "rgba(0, 0, 0, 0.85)";
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = "#0B0D14";
+        ctx.fill();
+        ctx.restore();
+
+        // B. Clip character image to precise circular path (removes 100% of checkerboard & square background corners)
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(charCenterX, 0, charRadius, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(
+          charImg,
+          charCenterX - charRadius,
+          -charRadius,
+          charRadius * 2,
+          charRadius * 2
+        );
+        ctx.restore();
+
+        // C. Golden Scroll Ring around character medallion
+        ctx.beginPath();
+        ctx.arc(charCenterX, 0, charRadius, 0, Math.PI * 2);
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = "#FFD700";
+        ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
+        ctx.shadowBlur = 6;
+        ctx.stroke();
+
         ctx.restore();
       }
 
@@ -222,7 +251,7 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       ctx.stroke();
       ctx.restore();
 
-      // C. Compact Dark Offer Pill at Outer Edge (ZERO Overlap with Face!)
+      // C. Offer Text Banner Pill Placed Right at the Outer Circle Radius (ZERO Overlap with Character Face!)
       ctx.save();
       ctx.rotate(midAngle);
 
@@ -233,30 +262,32 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       else if (prize.name.includes("RE-SPIN")) offerText = "RE-SPIN CHAKRA 🌀";
       else if (prize.name.includes("FREE")) offerText = "FREE MAGNET 🍥";
 
-      const bannerWidth = innerWheelRadius * 0.46;
-      const bannerHeight = 20;
-      const bannerX = innerWheelRadius - bannerWidth - 4;
+      ctx.font = "900 9px system-ui, -apple-system, sans-serif";
+      const textMetrics = ctx.measureText(offerText);
+      const bannerWidth = Math.max(textMetrics.width + 12, innerWheelRadius * 0.28);
+      const bannerHeight = 18;
+      const bannerX = innerWheelRadius * 0.96 - bannerWidth;
       const bannerY = -bannerHeight / 2;
 
-      // Slim Dark Pill Background at Outer Edge
+      // Outer Edge Text Pill Background
       ctx.beginPath();
       if (typeof (ctx as any).roundRect === "function") {
-        (ctx as any).roundRect(bannerX, bannerY, bannerWidth, bannerHeight, 10);
+        (ctx as any).roundRect(bannerX, bannerY, bannerWidth, bannerHeight, 9);
       } else {
         ctx.rect(bannerX, bannerY, bannerWidth, bannerHeight);
       }
-      ctx.fillStyle = "rgba(11, 13, 20, 0.92)";
+      ctx.fillStyle = "rgba(11, 13, 20, 0.94)";
       ctx.fill();
       ctx.lineWidth = 1.5;
       ctx.strokeStyle = "#FFD700";
       ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
-      ctx.shadowBlur = 5;
+      ctx.shadowBlur = 6;
       ctx.stroke();
 
-      // Single Line Offer Details Text ONLY
+      // Single Line Offer Text Right-Aligned to Outer Rim
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = "900 9.5px system-ui, -apple-system, sans-serif";
+      ctx.font = "900 9px system-ui, -apple-system, sans-serif";
       ctx.fillStyle = "#FFD700";
       ctx.shadowColor = "#000000";
       ctx.shadowBlur = 4;
