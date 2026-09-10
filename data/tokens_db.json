@@ -1,0 +1,139 @@
+{
+  "tokens": {
+    "NINJA-YQY1X": {
+      "code": "NINJA-YQY1X",
+      "is_used": true,
+      "created_at": "2026-09-10T11:08:28.245Z",
+      "customer_name": "Sasuke Uchiha",
+      "phone": "9123456789",
+      "note": "Registered User: Sasuke Uchiha",
+      "claimed_at": "2026-09-10T11:08:45.872Z",
+      "prize_won": {
+        "id": "free-photo-magnet",
+        "name": "FREE PHOTO MAGNET",
+        "description": "Claim a complimentary custom Kakashi Shinobi Photo Magnet!",
+        "rarity": "Rare",
+        "weight": 12,
+        "color": "#FFD700",
+        "textColor": "#3A2818",
+        "icon": "🖼️",
+        "badge": "Kakashi Magnet",
+        "enabled": true
+      },
+      "slice_index": 3,
+      "ip": "127.0.0.1",
+      "user_agent": "curl/8.7.1"
+    }
+  },
+  "logs": [],
+  "prizes": [
+    {
+      "id": "5-percent-off",
+      "name": "5% OFF",
+      "description": "Enjoy a 5% discount on your ninja purchase!",
+      "rarity": "Common",
+      "weight": 10,
+      "color": "#FF6B00",
+      "textColor": "#FFFFFF",
+      "icon": "🏷️",
+      "badge": "Chakra Discount",
+      "enabled": true
+    },
+    {
+      "id": "10-percent-off",
+      "name": "10% OFF",
+      "description": "Chakra boost! Take 10% off your total order.",
+      "rarity": "Common",
+      "weight": 5,
+      "color": "#E60000",
+      "textColor": "#FFFFFF",
+      "icon": "📜",
+      "badge": "Ninja Scroll Saver",
+      "enabled": true
+    },
+    {
+      "id": "20-rupees-off",
+      "name": "₹20 OFF",
+      "description": "Flat ₹20 discount applied to your order instantly!",
+      "rarity": "Common",
+      "weight": 2,
+      "color": "#00F0FF",
+      "textColor": "#0B0D14",
+      "icon": "💰",
+      "badge": "Ichiraku Coin",
+      "enabled": true
+    },
+    {
+      "id": "free-photo-magnet",
+      "name": "FREE PHOTO MAGNET",
+      "description": "Claim a complimentary custom Kakashi Shinobi Photo Magnet!",
+      "rarity": "Rare",
+      "weight": 1,
+      "color": "#FFD700",
+      "textColor": "#3A2818",
+      "icon": "🖼️",
+      "badge": "Kakashi Magnet",
+      "enabled": true
+    },
+    {
+      "id": "better-luck-next-time",
+      "name": "BETTER LUCK NEXT TIME 🍃",
+      "description": "Caught in a Genjutsu mist! Better luck on your next ninja scroll.",
+      "rarity": "Common",
+      "weight": 75,
+      "color": "#4A5568",
+      "textColor": "#FFFFFF",
+      "icon": "🍃",
+      "badge": "Leaf Miss",
+      "enabled": true
+    },
+    {
+      "id": "friend-pays-ramen",
+      "name": "FRIEND PAYS FOR RAMEN 🍜",
+      "description": "Shadow Clone Jutsu! Your ninja friend pays for your Ichiraku Ramen!",
+      "rarity": "Epic",
+      "weight": 10,
+      "color": "#9900FF",
+      "textColor": "#FFFFFF",
+      "icon": "🍜",
+      "badge": "Ramen Swap",
+      "enabled": true
+    },
+    {
+      "id": "2-magnets-300",
+      "name": "2 MAGNETS FOR ₹300 🧲",
+      "description": "Special Shinobi Bundle: Get 2 custom Photo Magnets for just ₹300!",
+      "rarity": "Rare",
+      "weight": 35,
+      "color": "#00E676",
+      "textColor": "#0B0D14",
+      "icon": "🧲",
+      "badge": "Double Magnet Deal",
+      "enabled": true
+    },
+    {
+      "id": "re-spin-chakra",
+      "name": "RE-SPIN CHAKRA 🌀",
+      "description": "Nine-Tails Chakra Surge! You earned a bonus re-spin ticket!",
+      "rarity": "Legendary",
+      "weight": 12,
+      "color": "#FF1744",
+      "textColor": "#FFFFFF",
+      "icon": "🌀",
+      "badge": "Bonus Spin",
+      "enabled": true
+    }
+  ],
+  "registrations": [
+    {
+      "id": "anzsrsp",
+      "name": "Sasuke Uchiha",
+      "phone": "9123456789",
+      "token_code": "NINJA-YQY1X",
+      "registered_at": "2026-09-10T11:08:28.245Z",
+      "prize_won": "FREE PHOTO MAGNET",
+      "claimed_at": "2026-09-10T11:08:45.872Z",
+      "whatsapp_link": "https://wa.me/919123456789?text=Arigato%20Sasuke%20Uchiha!%20%F0%9F%8D%83%20Thank%20you%20for%20buying%20our%20product!%20Your%20Shinobi%20Spin%20Reward%3A%20*FREE%20PHOTO%20MAGNET*.%20Show%20this%20scroll%20to%20redeem%20your%20offer.%20Arigato!%20%F0%9F%8D%A5"
+    }
+  ]
+}
