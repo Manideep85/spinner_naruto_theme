@@ -1,6 +1,7 @@
 export interface Prize {
   id: string;
   name: string;
+  character: string;
   description: string;
   rarity: "Common" | "Rare" | "Epic" | "Legendary";
   weight: number; // Secret Probability Weight
@@ -15,97 +16,105 @@ export const INITIAL_PRIZES: Prize[] = [
   {
     id: "better-luck-next-time",
     name: "BETTER LUCK NEXT TIME 🍃",
+    character: "Sakura 🌸",
     description: "Caught in a Genjutsu mist! Better luck on your next ninja scroll.",
     rarity: "Common",
     weight: 60, // MOST FREQUENT (60%)
-    color: "#4A5568",
+    color: "#E91E63", // Sakura Pink
     textColor: "#FFFFFF",
-    icon: "🍃",
-    badge: "Leaf Miss",
+    icon: "🌸",
+    badge: "Sakura Blossom",
     enabled: true,
   },
   {
     id: "2-magnets-300",
     name: "2 MAGNETS FOR ₹300 🧲",
-    description: "Special Shinobi Bundle: Get 2 custom Photo Magnets for just ₹300!",
+    character: "Jiraiya 🐸",
+    description: "Toad Sage Special Bundle: Get 2 custom Photo Magnets for just ₹300!",
     rarity: "Rare",
     weight: 25, // SECOND MOST FREQUENT (25%)
-    color: "#00E676",
-    textColor: "#0B0D14",
-    icon: "🧲",
-    badge: "Double Magnet Deal",
+    color: "#D32F2F", // Jiraiya Red
+    textColor: "#FFFFFF",
+    icon: "🐸",
+    badge: "Toad Sage",
     enabled: true,
   },
   {
     id: "5-percent-off",
     name: "5% OFF",
-    description: "Enjoy a 5% discount on your ninja purchase!",
+    character: "Gaara ⏳",
+    description: "Desert Sand Shield! Enjoy a 5% discount on your order!",
     rarity: "Common",
     weight: 5, // VERY RARE (5%)
-    color: "#FF6B00",
-    textColor: "#FFFFFF",
-    icon: "🏷️",
-    badge: "Chakra Discount",
+    color: "#FF9800", // Sand Orange
+    textColor: "#0B0D14",
+    icon: "⏳",
+    badge: "Sand Shinobi",
     enabled: true,
   },
   {
     id: "10-percent-off",
     name: "10% OFF",
-    description: "Chakra boost! Take 10% off your total order.",
+    character: "Pain 🔴",
+    description: "Almighty Push! Take 10% off your total purchase.",
     rarity: "Common",
     weight: 4, // RARE (4%)
-    color: "#E60000",
+    color: "#7B1FA2", // Akatsuki Purple
     textColor: "#FFFFFF",
-    icon: "📜",
-    badge: "Ninja Scroll Saver",
+    icon: "🔴",
+    badge: "Almighty Push",
     enabled: true,
   },
   {
     id: "20-rupees-off",
     name: "₹20 OFF",
-    description: "Flat ₹20 discount applied to your order instantly!",
+    character: "Rock Lee 👊",
+    description: "Primary Lotus Surge! Flat ₹20 discount applied instantly!",
     rarity: "Common",
     weight: 3, // RARE (3%)
-    color: "#00F0FF",
-    textColor: "#0B0D14",
-    icon: "💰",
-    badge: "Ichiraku Coin",
+    color: "#388E3C", // Rock Lee Green
+    textColor: "#FFFFFF",
+    icon: "👊",
+    badge: "Eight Gates",
     enabled: true,
   },
   {
     id: "friend-pays-ramen",
     name: "FRIEND PAYS FOR RAMEN 🍜",
-    description: "Shadow Clone Jutsu! Your ninja friend pays for your Ichiraku Ramen!",
+    character: "Sasuke ⚡",
+    description: "Chidori Swap! Your ninja friend pays for your Ichiraku Ramen!",
     rarity: "Epic",
     weight: 2, // ULTRA RARE (2%)
-    color: "#9900FF",
+    color: "#1976D2", // Sasuke Uchiha Blue
     textColor: "#FFFFFF",
     icon: "🍜",
-    badge: "Ramen Swap",
+    badge: "Chidori Swap",
     enabled: true,
   },
   {
     id: "re-spin-chakra",
     name: "RE-SPIN CHAKRA 🌀",
-    description: "Nine-Tails Chakra Surge! You earned a bonus re-spin ticket!",
+    character: "Itachi 👁️",
+    description: "Tsukuyomi Bonus! You earned a bonus re-spin ticket!",
     rarity: "Legendary",
-    weight: 1, // ULTRA RARE BONUS SPIN (1%)
-    color: "#FF1744",
-    textColor: "#FFFFFF",
-    icon: "🌀",
-    badge: "Bonus Spin",
+    weight: 1, // BONUS RE-SPIN (1%)
+    color: "#212121", // Itachi Dark Crimson
+    textColor: "#FF4444",
+    icon: "👁️",
+    badge: "Crow Genjutsu",
     enabled: true,
   },
   {
     id: "free-photo-magnet",
     name: "FREE PHOTO MAGNET",
-    description: "Claim a complimentary custom Kakashi Shinobi Photo Magnet!",
+    character: "Naruto 🍥",
+    description: "Nine-Tails Gift! Claim a complimentary custom Photo Magnet!",
     rarity: "Rare",
     weight: 0, // NEVER WINS (0%)
-    color: "#FFD700",
-    textColor: "#3A2818",
-    icon: "🖼️",
-    badge: "Kakashi Magnet",
+    color: "#FF6B00", // Naruto Orange
+    textColor: "#FFFFFF",
+    icon: "🍥",
+    badge: "Nine-Tails",
     enabled: true,
   },
 ];

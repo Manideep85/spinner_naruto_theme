@@ -10,7 +10,6 @@ import { narutoAudio } from "@/lib/audio";
 import {
   Volume2,
   VolumeX,
-  ShieldCheck,
   Flame,
   User,
   Phone,
@@ -43,7 +42,7 @@ function SpinnerPageContent() {
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
 
-  // Restore token & claim status from localStorage/cookie on mount
+  // Restore active token from URL or localStorage
   useEffect(() => {
     let token = tokenParam;
     if (!token && typeof window !== "undefined") {
@@ -57,7 +56,7 @@ function SpinnerPageContent() {
     }
   }, [tokenParam]);
 
-  // Fetch prizes & verify token
+  // Fetch prizes & verify token status
   useEffect(() => {
     if (!activeToken) return;
 
@@ -74,7 +73,6 @@ function SpinnerPageContent() {
         if (data.valid) {
           setTokenValid(true);
 
-          // Check if local persistent claim lock exists
           let localClaimed = false;
           let savedPrize: Prize | null = null;
           if (typeof window !== "undefined") {
@@ -90,8 +88,6 @@ function SpinnerPageContent() {
 
           const claimedState = data.is_used || localClaimed;
           const finalPrize = data.prize_won || savedPrize;
-
-          // Check if prize won was bonus RE-SPIN CHAKRA
           const isBonusRespin = finalPrize?.id === "re-spin-chakra";
 
           if (claimedState && !isBonusRespin) {
@@ -103,7 +99,7 @@ function SpinnerPageContent() {
           }
         } else {
           setTokenValid(false);
-          setErrorMessage(data.error || "Invalid Spin Scroll Token.");
+          setErrorMessage(data.error || "Invalid Spin Access.");
         }
       })
       .catch(() => {
@@ -112,7 +108,7 @@ function SpinnerPageContent() {
       });
   }, [activeToken]);
 
-  // Handle Form Registration
+  // Handle Form Registration with Phone Lock Check
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     narutoAudio.initCtx();
@@ -139,6 +135,16 @@ function SpinnerPageContent() {
       setIsLoading(false);
 
       if (!res.ok || !data.success) {
+        // Strict Phone Lock Check: If phone is already registered and used
+        if (data.is_used) {
+          setIsUsed(true);
+          setPrizeWon(data.prize_won);
+          setClaimedAt(data.claimed_at);
+          setTokenValid(true);
+          setActiveToken("USED_PHONE_LOCK");
+          return;
+        }
+
         setErrorMessage(data.error || "Registration failed.");
         return;
       }
@@ -204,7 +210,6 @@ function SpinnerPageContent() {
       setClaimedAt(new Date().toISOString());
       setShowModal(true);
 
-      // Lock single-use claim persistently in localStorage
       if (typeof window !== "undefined") {
         localStorage.setItem(
           `ninja_claimed_${activeToken}`,
@@ -212,12 +217,10 @@ function SpinnerPageContent() {
         );
       }
 
-      // Check if re-spin bonus
       if (wonPrize.id !== "re-spin-chakra") {
         setIsUsed(true);
       }
 
-      // Trigger WhatsApp Link
       if (whatsappLink) {
         setTimeout(() => {
           window.open(whatsappLink, "_blank");
@@ -233,7 +236,7 @@ function SpinnerPageContent() {
 
   return (
     <div className="min-h-screen flex flex-col justify-between p-3 sm:p-6 max-w-lg mx-auto">
-      {/* Header Bar */}
+      {/* Header Bar (NO TOKEN CODES DISPLAYED FOR SECURITY) */}
       <header className="flex items-center justify-between py-2 border-b border-konoha-border/60">
         <div className="flex items-center gap-2">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-konoha-orange to-konoha-red flex items-center justify-center text-xl shadow-[0_0_15px_rgba(255,107,0,0.6)] animate-pulse">
@@ -267,7 +270,7 @@ function SpinnerPageContent() {
         </div>
       </header>
 
-      {/* Main Content: SHOWS ONLY THE SPIN WHEEL OR REGISTRATION */}
+      {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center my-4">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center p-12 space-y-4">
@@ -340,13 +343,13 @@ function SpinnerPageContent() {
               Automated thank you message & reward details will be sent via WhatsApp upon spinning.
             </div>
           </div>
-        ) : !tokenValid ? (
+        ) : !tokenValid && !isUsed ? (
           /* Invalid Token */
           <div className="w-full bg-konoha-cardBg border border-red-900/80 rounded-2xl p-6 shadow-xl text-center space-y-4">
             <div className="w-16 h-16 bg-red-950 border border-red-600 rounded-full flex items-center justify-center mx-auto text-3xl">
               ❌
             </div>
-            <h2 className="text-lg font-black text-red-500">Invalid Spin Token</h2>
+            <h2 className="text-lg font-black text-red-500">Invalid Spin Access</h2>
             <p className="text-xs text-gray-300 font-mono">{errorMessage}</p>
             <button
               onClick={() => {
@@ -362,25 +365,14 @@ function SpinnerPageContent() {
             </button>
           </div>
         ) : isUsed ? (
-          /* STRICT SINGLE-USE LOCK (On Refresh / Rescan) */
+          /* STRICT SINGLE-USE LOCK (On Phone Re-registration, Refresh, or Rescan) */
           <AlreadyClaimedCard
-            tokenCode={activeToken}
             claimedAt={claimedAt}
             prizeWon={prizeWon}
           />
         ) : (
           /* ACTIVE UNUSED TOKEN SCREEN: SHOWS ONLY THE SPIN WHEEL */
           <div className="w-full flex flex-col items-center justify-center space-y-4 my-auto">
-            <div className="w-full bg-konoha-cardBg/90 border border-konoha-orange/40 rounded-xl p-3 flex items-center justify-between text-xs font-mono">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-green-400" />
-                <span>Ticket: <strong className="text-konoha-orange">{activeToken.slice(0, 15)}...</strong></span>
-              </div>
-              <span className="bg-green-950 text-green-400 px-2 py-0.5 rounded text-[10px] font-bold border border-green-800">
-                1-TIME SPIN UNLOCKED
-              </span>
-            </div>
-
             {errorMessage && (
               <div className="w-full bg-red-950/80 border border-red-800 text-red-200 text-xs p-3 rounded-xl text-center">
                 {errorMessage}
@@ -405,12 +397,10 @@ function SpinnerPageContent() {
         <span className="text-konoha-cyan font-bold">100% Open Source • Server Probability</span>
       </footer>
 
-      {/* Prize Reveal Scroll Modal */}
+      {/* Prize Reveal Scroll Modal (CLEAN & ANIME CHARACTER FOCUSED) */}
       <ScrollModal
         isOpen={showModal}
         prize={prizeWon}
-        tokenCode={activeToken}
-        claimedAt={claimedAt}
         phone={userPhone}
         customerName={userName}
         onClose={() => setShowModal(false)}

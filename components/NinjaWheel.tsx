@@ -84,7 +84,7 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       ctx.fill();
 
       ctx.lineWidth = 3;
-      ctx.strokeStyle = "#B88A44";
+      ctx.strokeStyle = "#FFD700";
       ctx.stroke();
 
       // Draw Slice Text & Icon
@@ -94,15 +94,17 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
 
       ctx.textAlign = "right";
       ctx.fillStyle = prize.textColor;
-      ctx.font = "bold 15px sans-serif";
-      ctx.shadowColor = "rgba(0,0,0,0.7)";
-      ctx.shadowBlur = 4;
+      ctx.shadowColor = "rgba(0,0,0,0.8)";
+      ctx.shadowBlur = 5;
 
-      ctx.font = "22px sans-serif";
-      ctx.fillText(prize.icon, radius - 20, 7);
+      // Draw Icon
+      ctx.font = "20px sans-serif";
+      ctx.fillText(prize.icon, radius - 18, 6);
 
-      ctx.font = "bold 11px sans-serif";
-      ctx.fillText(prize.name, radius - 52, 4);
+      // Draw Character / Slice Label
+      ctx.font = "bold 12px sans-serif";
+      const charLabel = prize.character ? prize.character.split(" ")[0].toUpperCase() : prize.name.split(" ")[0];
+      ctx.fillText(charLabel, radius - 46, 5);
 
       ctx.restore();
     }

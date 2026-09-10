@@ -95,9 +95,59 @@ function writeDb(data: DatabaseSchema): void {
   } catch {}
 }
 
-export function registerCustomerUser(name: string, phone: string): { token: TokenRecord; registration: CustomerRegistration } {
+/**
+ * Check if a phone number has ALREADY registered and used a spin before.
+ */
+export function isPhoneAlreadyUsed(phone: string): { is_used: boolean; prize_won?: string; claimed_at?: string; token_code?: string } {
   const db = readDb();
   const cleanPhone = phone.trim().replace(/\D/g, "");
+  if (!cleanPhone) return { is_used: false };
+
+  // Check registrations
+  const reg = db.registrations.find((r) => r.phone.replace(/\D/g, "") === cleanPhone && r.prize_won);
+  if (reg) {
+    return {
+      is_used: true,
+      prize_won: reg.prize_won,
+      claimed_at: reg.claimed_at || reg.registered_at,
+      token_code: reg.token_code,
+    };
+  }
+
+  // Check tokens
+  const tokenList = Object.values(db.tokens);
+  const matchedToken = tokenList.find((t) => t.phone && t.phone.replace(/\D/g, "") === cleanPhone && t.is_used);
+  if (matchedToken) {
+    return {
+      is_used: true,
+      prize_won: matchedToken.prize_won?.name,
+      claimed_at: matchedToken.claimed_at,
+      token_code: matchedToken.code,
+    };
+  }
+
+  return { is_used: false };
+}
+
+export function registerCustomerUser(
+  name: string,
+  phone: string
+): { success: boolean; token?: TokenRecord; registration?: CustomerRegistration; is_used?: boolean; prize_won?: string; claimed_at?: string; error?: string } {
+  const db = readDb();
+  const cleanPhone = phone.trim().replace(/\D/g, "");
+
+  // Check Phone Usage Lock
+  const phoneCheck = isPhoneAlreadyUsed(cleanPhone);
+  if (phoneCheck.is_used) {
+    return {
+      success: false,
+      is_used: true,
+      prize_won: phoneCheck.prize_won,
+      claimed_at: phoneCheck.claimed_at,
+      error: "This phone number has already used its single-use spin!",
+    };
+  }
+
   const randomCode = `NINJA-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
   const tokenObj: TokenRecord = {
@@ -129,7 +179,7 @@ export function registerCustomerUser(name: string, phone: string): { token: Toke
   });
 
   writeDb(db);
-  return { token: tokenObj, registration: regObj };
+  return { success: true, token: tokenObj, registration: regObj };
 }
 
 export function createToken(code: string, note?: string): TokenRecord {
@@ -200,7 +250,6 @@ export function claimToken(
   let token = db.tokens[normalized];
 
   if (!token) {
-    // Create dynamically for signed serverless tokens
     token = {
       code: normalized,
       is_used: false,
@@ -238,7 +287,7 @@ export function claimToken(
     waLink = generateWhatsAppLink(token.phone, prize.name, token.customer_name);
   }
 
-  const regIndex = db.registrations.findIndex((r) => r.token_code === normalized);
+  const regIndex = db.registrations.findIndex((r) => r.token_code === normalized || (token.phone && r.phone === token.phone));
   if (regIndex >= 0) {
     db.registrations[regIndex].prize_won = prize.name;
     db.registrations[regIndex].claimed_at = token.claimed_at;
