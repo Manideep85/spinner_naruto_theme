@@ -131,20 +131,48 @@ export default function AdminPage() {
   };
 
   const exportRegistrationsCsv = () => {
-    const headers = ["ID", "Name", "Phone", "Token Code", "Prize Won", "Registered At"];
-    const rows = registrations.map((r) => [
-      r.id,
-      `"${r.name || ""}"`,
-      `"${r.phone}"`,
-      r.token_code,
-      `"${r.prize_won || ""}"`,
-      r.registered_at,
-    ]);
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
+    const headers = [
+      "Customer Name",
+      "Phone Number",
+      "Prize Won",
+      "Discount / Offer Received",
+      "Token Code",
+      "Registration Date & Time",
+      "Claim Status",
+    ];
+
+    const rows = registrations.map((r) => {
+      let discountDetails = r.prize_won || "None";
+      if (r.prize_won) {
+        if (r.prize_won.includes("5%")) discountDetails = "5% OFF Discount";
+        else if (r.prize_won.includes("10%")) discountDetails = "10% OFF Discount";
+        else if (r.prize_won.includes("20")) discountDetails = "₹20 OFF Flat Discount";
+        else if (r.prize_won.includes("MAGNETS")) discountDetails = "2 Magnets for ₹300 Special Deal";
+        else if (r.prize_won.includes("RAMEN")) discountDetails = "Friend Pays for Ramen";
+        else if (r.prize_won.includes("RE-SPIN")) discountDetails = "Bonus Re-Spin Chakra";
+        else if (r.prize_won.includes("FREE")) discountDetails = "Free Photo Magnet";
+        else if (r.prize_won.includes("BETTER")) discountDetails = "No Discount (Better Luck Next Time)";
+      }
+
+      const status = r.prize_won ? "SPUN & CLAIMED" : "REGISTERED (NOT SPUN)";
+
+      return [
+        `"${r.name || "Shinobi Customer"}"`,
+        `"${r.phone}"`,
+        `"${r.prize_won || "—"}"`,
+        `"${discountDetails}"`,
+        `"${r.token_code}"`,
+        `"${new Date(r.registered_at).toLocaleString()}"`,
+        `"${status}"`,
+      ];
+    });
+
+    const csvString = "\uFEFF" + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `customer-registrations-${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Naruto_Spin_Customer_Rewards_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -409,9 +437,10 @@ export default function AdminPage() {
             {registrations.length > 0 && (
               <button
                 onClick={exportRegistrationsCsv}
-                className="py-1.5 px-3 bg-gray-900 hover:bg-gray-800 border border-gray-700 text-xs font-mono text-konoha-gold rounded-lg flex items-center gap-1"
+                className="py-2 px-4 bg-gradient-to-r from-konoha-orange to-konoha-gold hover:from-konoha-orangeLight hover:to-konoha-gold text-black font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md flex items-center gap-1.5 transition-all active:scale-95"
               >
-                <Download className="w-3.5 h-3.5" /> Export CSV
+                <Download className="w-4 h-4" />
+                <span>Export to Excel (.csv)</span>
               </button>
             )}
           </div>
@@ -422,36 +451,49 @@ export default function AdminPage() {
                 <tr>
                   <th className="p-3">Customer Name</th>
                   <th className="p-3">Phone Number</th>
-                  <th className="p-3">Token Code</th>
                   <th className="p-3">Prize Won</th>
-                  <th className="p-3">Time</th>
-                  <th className="p-3 text-right">WhatsApp</th>
+                  <th className="p-3">Discount / Offer</th>
+                  <th className="p-3">Registration Time</th>
+                  <th className="p-3 text-right">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800/60">
-                {registrations.map((r) => (
-                  <tr key={r.id} className="hover:bg-gray-900/40">
-                    <td className="p-3 font-bold text-white">{r.name || "—"}</td>
-                    <td className="p-3 text-konoha-cyan font-bold">{r.phone}</td>
-                    <td className="p-3 text-gray-300">{r.token_code}</td>
-                    <td className="p-3 text-konoha-gold font-bold">{r.prize_won || "—"}</td>
-                    <td className="p-3 text-gray-400">
-                      {new Date(r.registered_at).toLocaleTimeString()}
-                    </td>
-                    <td className="p-3 text-right">
-                      {r.whatsapp_link && (
-                        <a
-                          href={r.whatsapp_link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 py-1 px-2.5 bg-green-950 hover:bg-green-900 text-green-300 border border-green-800 rounded"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5 text-green-400" /> Send WA
-                        </a>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {registrations.map((r) => {
+                  let discountText = r.prize_won || "None";
+                  if (r.prize_won) {
+                    if (r.prize_won.includes("5%")) discountText = "5% OFF";
+                    else if (r.prize_won.includes("10%")) discountText = "10% OFF";
+                    else if (r.prize_won.includes("20")) discountText = "₹20 OFF";
+                    else if (r.prize_won.includes("MAGNETS")) discountText = "2 Magnets for ₹300";
+                    else if (r.prize_won.includes("RAMEN")) discountText = "Ramen Deal";
+                    else if (r.prize_won.includes("RE-SPIN")) discountText = "Bonus Re-Spin";
+                    else if (r.prize_won.includes("FREE")) discountText = "Free Magnet";
+                    else if (r.prize_won.includes("BETTER")) discountText = "Better Luck Next Time";
+                  }
+
+                  return (
+                    <tr key={r.id} className="hover:bg-gray-900/40">
+                      <td className="p-3 font-bold text-white">{r.name || "Shinobi Customer"}</td>
+                      <td className="p-3 text-konoha-cyan font-bold">{r.phone}</td>
+                      <td className="p-3 text-konoha-gold font-bold">{r.prize_won || "—"}</td>
+                      <td className="p-3 text-green-400 font-bold">{discountText}</td>
+                      <td className="p-3 text-gray-400">
+                        {new Date(r.registered_at).toLocaleString()}
+                      </td>
+                      <td className="p-3 text-right">
+                        {r.prize_won ? (
+                          <span className="inline-flex items-center gap-1 py-0.5 px-2 bg-green-950 text-green-400 border border-green-800 rounded text-[10px]">
+                            CLAIMED
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 py-0.5 px-2 bg-yellow-950 text-yellow-400 border border-yellow-800 rounded text-[10px]">
+                            REGISTERED
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

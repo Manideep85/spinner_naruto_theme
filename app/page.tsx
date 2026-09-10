@@ -127,6 +127,29 @@ function SpinnerPageContent() {
       return;
     }
 
+    const cleanPhoneDigits = userPhone.trim().replace(/\D/g, "");
+    const last10 = cleanPhoneDigits.length >= 10 ? cleanPhoneDigits.slice(-10) : cleanPhoneDigits;
+
+    // Check client side persistent lock
+    if (typeof window !== "undefined" && last10) {
+      const localLock = localStorage.getItem(`ninja_claimed_phone_${last10}`);
+      const cookieLock = document.cookie.includes(`ninja_claimed_phone_${last10}=true`);
+      if (localLock || cookieLock) {
+        let savedPrize: Prize | null = null;
+        if (localLock) {
+          try {
+            const parsed = JSON.parse(localLock);
+            savedPrize = parsed.prize;
+          } catch {}
+        }
+        setIsUsed(true);
+        setPrizeWon(savedPrize);
+        setTokenValid(true);
+        setActiveToken("CLAIMED_LOCKED");
+        return;
+      }
+    }
+
     setIsLoading(true);
     setErrorMessage("");
 
@@ -156,6 +179,14 @@ function SpinnerPageContent() {
             } else {
               matchedPrize = data.prize_won;
             }
+          }
+
+          if (typeof window !== "undefined" && last10) {
+            localStorage.setItem(
+              `ninja_claimed_phone_${last10}`,
+              JSON.stringify({ is_used: true, prize: matchedPrize })
+            );
+            document.cookie = `ninja_claimed_phone_${last10}=true; max-age=31536000; path=/`;
           }
 
           setIsUsed(true);
@@ -235,11 +266,21 @@ function SpinnerPageContent() {
       setClaimedAt(new Date().toISOString());
       setShowModal(true);
 
+      const cleanDigits = userPhone.trim().replace(/\D/g, "");
+      const last10 = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
+
       if (typeof window !== "undefined") {
         localStorage.setItem(
           `ninja_claimed_${activeToken}`,
           JSON.stringify({ is_used: true, prize: wonPrize, claimed_at: new Date().toISOString() })
         );
+        if (last10) {
+          localStorage.setItem(
+            `ninja_claimed_phone_${last10}`,
+            JSON.stringify({ is_used: true, prize: wonPrize, claimed_at: new Date().toISOString() })
+          );
+          document.cookie = `ninja_claimed_phone_${last10}=true; max-age=31536000; path=/`;
+        }
       }
 
       if (wonPrize.id !== "re-spin-chakra") {

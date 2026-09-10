@@ -26,9 +26,28 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
   const animFrameIdRef = useRef<number | null>(null);
   const lastTickSliceRef = useRef<number>(-1);
   const [pulseGlow, setPulseGlow] = useState<number>(0);
+  const loadedImagesRef = useRef<Record<string, HTMLImageElement>>({});
+  const [, setImagesLoadedState] = useState<boolean>(false);
 
   const numSlices = prizes.length;
   const sliceAngle = (Math.PI * 2) / numSlices;
+
+  // Preload Character Portrait Images
+  useEffect(() => {
+    const charKeys = ["sakura", "jiraiya", "gaara", "pain", "rock_lee", "sasuke", "itachi", "naruto"];
+    let loaded = 0;
+    charKeys.forEach((key) => {
+      const img = new Image();
+      img.src = `/images/characters/${key}.jpg`;
+      img.onload = () => {
+        loaded++;
+        if (loaded >= charKeys.length) {
+          setImagesLoadedState(true);
+        }
+      };
+      loadedImagesRef.current[key] = img;
+    });
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -170,7 +189,7 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       drawClanWatermark(ctx, charNameStr, innerWheelRadius);
       ctx.restore();
 
-      // Draw Character Avatar Icon & Bold Anime Typography
+      // Draw Character Avatar Image & Bold Anime Typography
       ctx.save();
       const midAngle = startAngle + sliceAngle / 2;
       ctx.rotate(midAngle);
@@ -178,36 +197,61 @@ export const NinjaWheel: React.FC<NinjaWheelProps> = ({
       ctx.textAlign = "right";
       ctx.textBaseline = "middle";
 
-      // Character Avatar Badge Circle
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(innerWheelRadius - 22, 0, 15, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
-      ctx.fill();
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = "#FFD700";
-      ctx.stroke();
+      const firstNameRaw = (prize.character || prize.name)
+        .split(" ")[0]
+        .replace(/[^a-zA-Z]/g, "");
+      const firstName = firstNameRaw.toUpperCase();
+      let charKey = firstNameRaw.toLowerCase();
+      if (charKey === "rock") charKey = "rock_lee";
 
-      // Avatar Emoji Icon
-      ctx.font = "18px sans-serif";
-      ctx.shadowColor = "rgba(0,0,0,0.9)";
+      const charImg = loadedImagesRef.current[charKey];
+
+      // Draw Circular Character Image Portrait
+      ctx.save();
+      const portraitCenterX = innerWheelRadius - 26;
+      const portraitCenterY = 0;
+      const portraitRadius = 18;
+
+      ctx.beginPath();
+      ctx.arc(portraitCenterX, portraitCenterY, portraitRadius, 0, Math.PI * 2);
+      ctx.closePath();
+
+      if (charImg && charImg.complete && charImg.naturalWidth > 0) {
+        ctx.save();
+        ctx.clip();
+        ctx.drawImage(
+          charImg,
+          portraitCenterX - portraitRadius,
+          portraitCenterY - portraitRadius,
+          portraitRadius * 2,
+          portraitRadius * 2
+        );
+        ctx.restore();
+      } else {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+        ctx.fill();
+        ctx.font = "16px sans-serif";
+        ctx.fillText(prize.icon, portraitCenterX + 8, portraitCenterY);
+      }
+
+      // Draw Gold Ring Frame around Portrait Image
+      ctx.beginPath();
+      ctx.arc(portraitCenterX, portraitCenterY, portraitRadius, 0, Math.PI * 2);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#FFD700";
+      ctx.shadowColor = "#FF6B00";
       ctx.shadowBlur = 6;
-      ctx.fillText(prize.icon, innerWheelRadius - 13, 1);
+      ctx.stroke();
       ctx.restore();
 
       // Character Name in Bold Anime Typography
-      const firstName = (prize.character || prize.name)
-        .split(" ")[0]
-        .replace(/[^a-zA-Z]/g, "")
-        .toUpperCase();
-
       ctx.font = "900 13px system-ui, -apple-system, sans-serif";
       ctx.fillStyle = "#FFFFFF";
       ctx.shadowColor = "#000000";
       ctx.shadowBlur = 8;
       ctx.shadowOffsetX = 1;
       ctx.shadowOffsetY = 1;
-      ctx.fillText(firstName, innerWheelRadius - 44, -5);
+      ctx.fillText(firstName, innerWheelRadius - 50, -5);
 
       // Prize Short Subtext
       let subtext = prize.name.split(" ")[0];

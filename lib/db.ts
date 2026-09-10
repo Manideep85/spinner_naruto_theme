@@ -45,8 +45,10 @@ interface DatabaseSchema {
   registrations: CustomerRegistration[];
 }
 
-const DB_DIR = path.join(process.cwd(), "data");
+const IS_VERCEL = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+const DB_DIR = IS_VERCEL ? "/tmp" : path.join(process.cwd(), "data");
 const DB_FILE = path.join(DB_DIR, "tokens_db.json");
+const SEED_DB_FILE = path.join(process.cwd(), "data", "tokens_db.json");
 
 const DEFAULT_TOKENS: Record<string, TokenRecord> = {};
 
@@ -78,6 +80,17 @@ function readDb(): DatabaseSchema {
         registrations: parsed.registrations || [],
       };
       return inMemoryDb;
+    } else if (fs.existsSync(SEED_DB_FILE)) {
+      const seedData = fs.readFileSync(SEED_DB_FILE, "utf-8");
+      const parsed = JSON.parse(seedData);
+      inMemoryDb = {
+        tokens: parsed.tokens || DEFAULT_TOKENS,
+        logs: parsed.logs || [],
+        prizes: parsed.prizes || INITIAL_PRIZES,
+        registrations: parsed.registrations || [],
+      };
+      writeDb(inMemoryDb);
+      return inMemoryDb;
     } else {
       writeDb(inMemoryDb);
       return inMemoryDb;
@@ -108,13 +121,13 @@ export function isPhoneAlreadyUsed(phone: string): { is_used: boolean; prize_won
   const reg = db.registrations.find((r) => {
     const rDigits = r.phone.replace(/\D/g, "");
     const rLast10 = rDigits.length >= 10 ? rDigits.slice(-10) : rDigits;
-    return rLast10 === last10 && r.prize_won;
+    return rLast10 === last10 && (r.prize_won || r.claimed_at);
   });
 
   if (reg) {
     return {
       is_used: true,
-      prize_won: reg.prize_won,
+      prize_won: reg.prize_won || "Reward Claimed",
       claimed_at: reg.claimed_at || reg.registered_at,
       token_code: reg.token_code,
     };
@@ -123,16 +136,16 @@ export function isPhoneAlreadyUsed(phone: string): { is_used: boolean; prize_won
   // Check tokens
   const tokenList = Object.values(db.tokens);
   const matchedToken = tokenList.find((t) => {
-    if (!t.phone || !t.is_used) return false;
+    if (!t.phone) return false;
     const tDigits = t.phone.replace(/\D/g, "");
     const tLast10 = tDigits.length >= 10 ? tDigits.slice(-10) : tDigits;
-    return tLast10 === last10;
+    return tLast10 === last10 && t.is_used;
   });
 
   if (matchedToken) {
     return {
       is_used: true,
-      prize_won: matchedToken.prize_won?.name,
+      prize_won: matchedToken.prize_won?.name || "Reward Claimed",
       claimed_at: matchedToken.claimed_at,
       token_code: matchedToken.code,
     };
