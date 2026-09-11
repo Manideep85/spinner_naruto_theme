@@ -34,12 +34,10 @@ export async function GET(request: Request) {
       );
     }
 
-    const [tokens, logs, prizes, registrations] = await Promise.all([
-      getAllTokens(),
-      getLogs(),
-      getDbPrizes(),
-      getAllRegistrations(),
-    ]);
+    const tokens = await getAllTokens();
+    const logs = await getLogs();
+    const prizes = await getDbPrizes();
+    const registrations = await getAllRegistrations();
 
     return NextResponse.json({
       success: true,
@@ -50,8 +48,13 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("Admin data load error:", error);
+    const databaseError = error as { code?: string };
     return NextResponse.json(
-      { success: false, error: "Cloud database unavailable. Please try again." },
+      {
+        success: false,
+        error: "Cloud database unavailable. Please try again.",
+        error_code: databaseError.code || "CLOUD_DATABASE_ERROR",
+      },
       { status: 503 }
     );
   }
