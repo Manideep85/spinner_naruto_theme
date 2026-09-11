@@ -50,7 +50,13 @@ export default function AdminPage() {
   const fetchAdminData = (adminPin: string) => {
     setIsLoading(true);
     fetch(`/api/tokens?pin=${encodeURIComponent(adminPin)}`)
-      .then((res) => res.json())
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to fetch admin data.");
+        }
+        return data;
+      })
       .then((data) => {
         setIsLoading(false);
         if (data.success) {
@@ -65,9 +71,9 @@ export default function AdminPage() {
           setAuthError(data.error || "Incorrect Admin PIN.");
         }
       })
-      .catch(() => {
+      .catch((error: Error) => {
         setIsLoading(false);
-        setAuthError("Failed to fetch admin data.");
+        setAuthError(error.message || "Failed to fetch admin data.");
       });
   };
 

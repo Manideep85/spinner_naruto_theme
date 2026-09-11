@@ -14,30 +14,40 @@ import {
 const getCleanAdminPin = () => (process.env.ADMIN_PIN || "1234").replace(/['"]/g, "").trim();
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const pin = searchParams.get("pin");
-  const adminPin = getCleanAdminPin();
-  const cleanPin = (pin || "").replace(/['"]/g, "").trim();
+  try {
+    const { searchParams } = new URL(request.url);
+    const pin = searchParams.get("pin");
+    const adminPin = getCleanAdminPin();
+    const cleanPin = (pin || "").replace(/[\'"]/g, "").trim();
 
-  if (cleanPin !== adminPin) {
+    if (cleanPin !== adminPin) {
+      return NextResponse.json(
+        { error: "Unauthorized Shinobi Admin Pin Required." },
+        { status: 401 }
+      );
+    }
+
+    const [tokens, logs, prizes, registrations] = await Promise.all([
+      getAllTokens(),
+      getLogs(),
+      getDbPrizes(),
+      getAllRegistrations(),
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      tokens,
+      logs,
+      prizes,
+      registrations,
+    });
+  } catch (error) {
+    console.error("Admin data load error:", error);
     return NextResponse.json(
-      { error: "Unauthorized Shinobi Admin Pin Required." },
-      { status: 401 }
+      { success: false, error: "Cloud database unavailable. Please try again." },
+      { status: 503 }
     );
   }
-
-  const tokens = await getAllTokens();
-  const logs = await getLogs();
-  const prizes = await getDbPrizes();
-  const registrations = await getAllRegistrations();
-
-  return NextResponse.json({
-    success: true,
-    tokens,
-    logs,
-    prizes,
-    registrations,
-  });
 }
 
 export async function POST(request: Request) {
