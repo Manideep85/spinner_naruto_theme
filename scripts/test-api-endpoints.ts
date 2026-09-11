@@ -52,14 +52,14 @@ async function runApiTestSuite() {
   generatedToken = validRegJson.token;
 
   // -------------------------------------------------------------
-  // TEST 3: POST /api/register (Duplicate Phone Registration Lock)
+  // TEST 3: POST /api/register (Pre-Claim Phone Allowance)
   // -------------------------------------------------------------
-  console.log("\n3. Testing POST /api/register (Duplicate Phone Lock Prevention)...");
+  console.log("\n3. Testing POST /api/register (Pre-Claim Re-registration Allowance)...");
   const dupRegReq = createMockRequest("http://localhost:3000/api/register", "POST", { name: testName, phone: testPhone });
   const dupRegRes = await registerPOST(dupRegReq);
   const dupRegJson = await dupRegRes.json();
-  console.log("   Duplicate Lock Status:", dupRegRes.status, "Is Used:", dupRegJson.is_used, "Error:", dupRegJson.error);
-  if (dupRegRes.status !== 403 || !dupRegJson.is_used) throw new Error("Duplicate phone registration lock failed");
+  console.log("   Pre-Claim Re-registration Status:", dupRegRes.status, "Token:", dupRegJson.token ? "Valid Token" : "None");
+  if (!dupRegJson.success || !dupRegJson.token) throw new Error("Pre-claim re-registration failed");
 
   // -------------------------------------------------------------
   // TEST 4: GET /api/verify (Token Status Check)
@@ -90,6 +90,16 @@ async function runApiTestSuite() {
   const secondSpinJson = await secondSpinRes.json();
   console.log("   Rejection Status:", secondSpinRes.status, "Is Used:", secondSpinJson.is_used, "Error:", secondSpinJson.error);
   if (secondSpinRes.status !== 403 || !secondSpinJson.is_used) throw new Error("Second spin rejection failed");
+
+  // -------------------------------------------------------------
+  // TEST 6b: POST /api/register (Post-Claim Lock Rejection)
+  // -------------------------------------------------------------
+  console.log("\n6b. Testing POST /api/register (Post-Claim Duplicate Lock Rejection)...");
+  const postClaimRegReq = createMockRequest("http://localhost:3000/api/register", "POST", { name: testName, phone: testPhone });
+  const postClaimRegRes = await registerPOST(postClaimRegReq);
+  const postClaimRegJson = await postClaimRegRes.json();
+  console.log("   Post-Claim Lock Status:", postClaimRegRes.status, "Is Used:", postClaimRegJson.is_used);
+  if (postClaimRegRes.status !== 403 || postClaimRegJson.is_used !== true) throw new Error("Post-claim duplicate lock failed");
 
   // -------------------------------------------------------------
   // TEST 7: GET /api/tokens (Admin Authentication & Data Fetching)

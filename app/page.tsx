@@ -143,17 +143,23 @@ function SpinnerPageContent() {
       const cookieLock = document.cookie.includes(`ninja_claimed_phone_${last10}=true`);
       if (localLock || cookieLock) {
         let savedPrize: Prize | null = null;
+        let isUsedLocal = true;
         if (localLock) {
           try {
             const parsed = JSON.parse(localLock);
             savedPrize = parsed.prize;
+            if (parsed.is_used === false || parsed.prize?.id === "re-spin-chakra" || (typeof parsed.prize?.name === "string" && parsed.prize.name.toUpperCase().includes("RE-SPIN"))) {
+              isUsedLocal = false;
+            }
           } catch {}
         }
-        setIsUsed(true);
-        setPrizeWon(savedPrize);
-        setTokenValid(true);
-        setActiveToken("CLAIMED_LOCKED");
-        return;
+        if (isUsedLocal && cookieLock) {
+          setIsUsed(true);
+          setPrizeWon(savedPrize);
+          setTokenValid(true);
+          setActiveToken("CLAIMED_LOCKED");
+          return;
+        }
       }
     }
 
@@ -276,12 +282,14 @@ function SpinnerPageContent() {
       const cleanDigits = userPhone.trim().replace(/\D/g, "");
       const last10 = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
 
+      const isRespinPrize = wonPrize.id === "re-spin-chakra" || (typeof wonPrize.name === "string" && wonPrize.name.toUpperCase().includes("RE-SPIN"));
+
       if (typeof window !== "undefined") {
         localStorage.setItem(
           `ninja_claimed_${activeToken}`,
-          JSON.stringify({ is_used: true, prize: wonPrize, claimed_at: new Date().toISOString() })
+          JSON.stringify({ is_used: !isRespinPrize, prize: wonPrize, claimed_at: isRespinPrize ? null : new Date().toISOString() })
         );
-        if (last10) {
+        if (last10 && !isRespinPrize) {
           localStorage.setItem(
             `ninja_claimed_phone_${last10}`,
             JSON.stringify({ is_used: true, prize: wonPrize, claimed_at: new Date().toISOString() })
@@ -290,7 +298,7 @@ function SpinnerPageContent() {
         }
       }
 
-      if (wonPrize.id !== "re-spin-chakra") {
+      if (!isRespinPrize) {
         setIsUsed(true);
       }
     }

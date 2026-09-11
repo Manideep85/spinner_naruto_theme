@@ -64,12 +64,22 @@ export async function isPhoneAlreadyUsed(phone: string): Promise<{ is_used: bool
     });
 
     if (reg) {
-      return {
-        is_used: true,
-        prize_won: reg.prize_won || "Registration Recorded",
-        claimed_at: reg.claimed_at ? reg.claimed_at.toISOString() : reg.registered_at.toISOString(),
-        token_code: reg.token_code,
-      };
+      const isClaimed = reg.claimed_at !== null && (!reg.prize_won || !reg.prize_won.toUpperCase().includes("RE-SPIN"));
+      if (isClaimed) {
+        return {
+          is_used: true,
+          prize_won: reg.prize_won || "Registration Recorded",
+          claimed_at: reg.claimed_at ? reg.claimed_at.toISOString() : reg.registered_at.toISOString(),
+          token_code: reg.token_code,
+        };
+      } else {
+        return {
+          is_used: false,
+          prize_won: reg.prize_won || undefined,
+          claimed_at: reg.claimed_at ? reg.claimed_at.toISOString() : undefined,
+          token_code: reg.token_code,
+        };
+      }
     }
 
     const token = await prisma.tokenRecord.findFirst({
@@ -88,12 +98,22 @@ export async function isPhoneAlreadyUsed(phone: string): Promise<{ is_used: bool
         } catch {}
       }
 
-      return {
-        is_used: true,
-        prize_won: prizeObj?.name || "Registration Recorded",
-        claimed_at: token.claimed_at ? token.claimed_at.toISOString() : token.created_at.toISOString(),
-        token_code: token.code,
-      };
+      const isClaimed = token.is_used && token.claimed_at !== null && (!prizeObj || !prizeObj.name.toUpperCase().includes("RE-SPIN"));
+      if (isClaimed) {
+        return {
+          is_used: true,
+          prize_won: prizeObj?.name || "Registration Recorded",
+          claimed_at: token.claimed_at ? token.claimed_at.toISOString() : token.created_at.toISOString(),
+          token_code: token.code,
+        };
+      } else {
+        return {
+          is_used: false,
+          prize_won: prizeObj?.name || undefined,
+          claimed_at: token.claimed_at ? token.claimed_at.toISOString() : undefined,
+          token_code: token.code,
+        };
+      }
     }
 
     return { is_used: false };
@@ -106,12 +126,22 @@ export async function isPhoneAlreadyUsed(phone: string): Promise<{ is_used: bool
     });
 
     if (reg) {
-      return {
-        is_used: true,
-        prize_won: reg.prize_won || "Registration Recorded",
-        claimed_at: reg.claimed_at || reg.registered_at,
-        token_code: reg.token_code,
-      };
+      const isClaimed = reg.claimed_at !== undefined && reg.claimed_at !== null && (!reg.prize_won || !reg.prize_won.toUpperCase().includes("RE-SPIN"));
+      if (isClaimed) {
+        return {
+          is_used: true,
+          prize_won: reg.prize_won || "Registration Recorded",
+          claimed_at: reg.claimed_at || reg.registered_at,
+          token_code: reg.token_code,
+        };
+      } else {
+        return {
+          is_used: false,
+          prize_won: reg.prize_won || undefined,
+          claimed_at: reg.claimed_at,
+          token_code: reg.token_code,
+        };
+      }
     }
 
     return { is_used: false };
@@ -136,6 +166,25 @@ export async function registerCustomerUser(
       claimed_at: phoneCheck.claimed_at,
       error: "This phone number has already been registered and used its single-use spin!",
     };
+  }
+
+  // If user registered earlier but hasn't claimed a final prize, reuse their existing token
+  if (phoneCheck.token_code) {
+    const existingToken = await getToken(phoneCheck.token_code);
+    if (existingToken) {
+      return {
+        success: true,
+        token: existingToken,
+        registration: {
+          id: existingToken.code,
+          name: name.trim(),
+          phone: cleanPhone,
+          token_code: existingToken.code,
+          registered_at: existingToken.created_at,
+          prize_won: phoneCheck.prize_won,
+        },
+      };
+    }
   }
 
   const randomCode = `NINJA-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
@@ -378,14 +427,18 @@ export async function claimToken(
       return { success: false, token: existing, error: "You have already used your spin access!" };
     }
 
+    const isRespin = prize.name.toUpperCase().includes("RE-SPIN");
     const now = new Date();
     const prizeJson = JSON.stringify(prize);
+
+    const isUsedValue = !isRespin;
+    const claimedAtValue = isRespin ? null : now;
 
     const updatedToken = await prisma.tokenRecord.upsert({
       where: { code: normalized },
       update: {
-        is_used: true,
-        claimed_at: now,
+        is_used: isUsedValue,
+        claimed_at: claimedAtValue,
         prize_won_json: prizeJson,
         slice_index: sliceIndex,
         ip,
@@ -395,9 +448,9 @@ export async function claimToken(
       },
       create: {
         code: normalized,
-        is_used: true,
+        is_used: isUsedValue,
         created_at: now,
-        claimed_at: now,
+        claimed_at: claimedAtValue,
         prize_won_json: prizeJson,
         slice_index: sliceIndex,
         ip,
@@ -408,7 +461,7 @@ export async function claimToken(
     });
 
     let waLink = "";
-    if (phone) {
+    if (phone && !isRespin) {
       waLink = generateWhatsAppLink(phone, prize.name, name || updatedToken.customer_name || undefined);
     }
 
@@ -423,7 +476,7 @@ export async function claimToken(
         where: { id: regRecord.id },
         data: {
           prize_won: prize.name,
-          claimed_at: now,
+          claimed_at: claimedAtValue,
           whatsapp_link: waLink || undefined,
         },
       });
@@ -436,7 +489,7 @@ export async function claimToken(
           token_code: normalized,
           prize_won: prize.name,
           registered_at: now,
-          claimed_at: now,
+          claimed_at: claimedAtValue,
           whatsapp_link: waLink || undefined,
         },
       });
@@ -471,15 +524,39 @@ export async function claimToken(
       whatsappLink: waLink,
     };
   } catch (error) {
-    if (fallbackDb.tokens[normalized]) {
-      fallbackDb.tokens[normalized].is_used = true;
-      fallbackDb.tokens[normalized].claimed_at = new Date().toISOString();
+    const isRespin = prize.name.toUpperCase().includes("RE-SPIN");
+    if (!fallbackDb.tokens[normalized]) {
+      fallbackDb.tokens[normalized] = {
+        code: normalized,
+        is_used: !isRespin,
+        created_at: new Date().toISOString(),
+        claimed_at: !isRespin ? new Date().toISOString() : undefined,
+        prize_won: prize,
+        phone,
+        customer_name: name,
+      };
+    } else {
+      fallbackDb.tokens[normalized].is_used = !isRespin;
+      if (!isRespin) {
+        fallbackDb.tokens[normalized].claimed_at = new Date().toISOString();
+      } else {
+        delete fallbackDb.tokens[normalized].claimed_at;
+      }
       fallbackDb.tokens[normalized].prize_won = prize;
     }
+
+    const reg = fallbackDb.registrations.find((r) => r.phone === phone || r.token_code === normalized);
+    if (reg) {
+      reg.prize_won = prize.name;
+      if (!isRespin) {
+        reg.claimed_at = new Date().toISOString();
+      }
+    }
+
     return {
       success: true,
       token: fallbackDb.tokens[normalized],
-      whatsappLink: phone ? generateWhatsAppLink(phone, prize.name, name) : "",
+      whatsappLink: phone && !isRespin ? generateWhatsAppLink(phone, prize.name, name) : "",
     };
   }
 }

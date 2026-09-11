@@ -191,7 +191,9 @@ export default function AdminPage() {
         else if (r.prize_won.includes("BETTER")) discountDetails = "No Discount (Better Luck Next Time)";
       }
 
-      const status = r.prize_won ? "SPUN & CLAIMED" : "REGISTERED (NOT SPUN)";
+      const isClaimed = r.claimed_at && (!r.prize_won || !r.prize_won.toUpperCase().includes("RE-SPIN"));
+      const isRespin = r.prize_won && r.prize_won.toUpperCase().includes("RE-SPIN");
+      const status = isClaimed ? "SPUN & CLAIMED" : isRespin ? "REGISTERED (RE-SPIN ACTIVE)" : "REGISTERED (NOT SPUN)";
 
       return [
         `"${r.name || "Shinobi Customer"}"`,
@@ -538,9 +540,13 @@ export default function AdminPage() {
                           {new Date(r.registered_at).toLocaleString()}
                         </td>
                         <td className="p-3">
-                          {r.prize_won ? (
+                          {r.claimed_at && (!r.prize_won || !r.prize_won.toUpperCase().includes("RE-SPIN")) ? (
                             <span className="inline-flex items-center gap-1 py-0.5 px-2 bg-green-950 text-green-400 border border-green-800 rounded text-[10px]">
                               CLAIMED
+                            </span>
+                          ) : r.prize_won && r.prize_won.toUpperCase().includes("RE-SPIN") ? (
+                            <span className="inline-flex items-center gap-1 py-0.5 px-2 bg-amber-950 text-amber-400 border border-amber-800 rounded text-[10px]">
+                              RE-SPIN ACTIVE
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 py-0.5 px-2 bg-yellow-950 text-yellow-400 border border-yellow-800 rounded text-[10px]">
