@@ -28,13 +28,13 @@ async function runDatabaseIntegrationTest() {
     throw new Error("Registration failed to return a token.");
   }
 
-  // Step 3: Strict Lock Verification
-  console.log("3. Verifying single-use phone lock after registration...");
+  // Step 3: Unclaimed Phone Verification
+  console.log("3. Verifying phone status after registration (Should be eligible to spin, is_used: false)...");
   const checkAfter = await isPhoneAlreadyUsed(testPhone);
-  console.log("   Locked Status (Should be true):", checkAfter.is_used);
+  console.log("   Unclaimed Status (Should be false):", checkAfter.is_used);
 
-  if (!checkAfter.is_used) {
-    throw new Error("Phone lock check failed! Expected is_used: true.");
+  if (checkAfter.is_used) {
+    throw new Error("Phone lock check failed! Registered user before claim should have is_used: false.");
   }
 
   // Step 4: Claim Spin Token
