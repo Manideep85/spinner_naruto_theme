@@ -1,5 +1,5 @@
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -8,34 +8,34 @@ generator client {
 }
 
 model CustomerRegistration {
-  id           String    @id @default(uuid())
-  name         String
-  phone        String    @unique
-  token_code   String    @unique
-  prize_won    String?
+  id            String    @id @default(uuid())
+  name          String
+  phone         String    @unique
+  token_code    String    @unique
+  prize_won     String?
   registered_at DateTime  @default(now())
   claimed_at    DateTime?
   whatsapp_link String?
 
-  token        TokenRecord? @relation(fields: [token_code], references: [code], onDelete: Cascade)
+  token         TokenRecord? @relation(fields: [token_code], references: [code], onDelete: Cascade)
 
   @@index([phone])
 }
 
 model TokenRecord {
-  code          String    @id
-  is_used       Boolean   @default(false)
-  created_at    DateTime  @default(now())
-  claimed_at    DateTime?
+  code           String    @id
+  is_used        Boolean   @default(false)
+  created_at     DateTime  @default(now())
+  claimed_at     DateTime?
   prize_won_json String?
-  slice_index   Int?
-  ip            String?
-  user_agent    String?
-  phone         String?
-  customer_name String?
-  note          String?
+  slice_index    Int?
+  ip             String?
+  user_agent     String?
+  phone          String?
+  customer_name  String?
+  note           String?
 
-  registration  CustomerRegistration?
+  registration   CustomerRegistration?
 }
 
 model PrizeRecord {
