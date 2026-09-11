@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { Prize, INITIAL_PRIZES } from "./prizes";
+import { Prize } from "./prizes";
 import { generateWhatsAppLink } from "./utils";
 
 export interface TokenRecord {
@@ -37,17 +37,9 @@ export interface CustomerRegistration {
   whatsapp_link?: string;
 }
 
-// In-Memory fallback store for maximum zero-downtime resilience
-const fallbackDb = {
-  tokens: {} as Record<string, TokenRecord>,
-  logs: [] as SpinLog[],
-  prizes: [...INITIAL_PRIZES],
-  registrations: [] as CustomerRegistration[],
-};
-
 /**
  * Check if a 10-digit phone number has ALREADY registered or used a spin.
- * Queries CustomerRegistration and TokenRecord in Prisma relational DB with fallback resilience.
+ * Queries CustomerRegistration and TokenRecord in the cloud database.
  */
 export async function isPhoneAlreadyUsed(phone: string): Promise<{ is_used: boolean; prize_won?: string; claimed_at?: string; token_code?: string }> {
   const digits = phone.trim().replace(/\D/g, "");
@@ -118,38 +110,12 @@ export async function isPhoneAlreadyUsed(phone: string): Promise<{ is_used: bool
 
     return { is_used: false };
   } catch (error) {
-    console.warn("Prisma DB unavailable, checking fallback store:", (error as Error).message);
-    const reg = fallbackDb.registrations.find((r) => {
-      const rDigits = r.phone.replace(/\D/g, "");
-      const rLast10 = rDigits.length >= 10 ? rDigits.slice(-10) : rDigits;
-      return rLast10 === last10;
-    });
-
-    if (reg) {
-      const isClaimed = reg.claimed_at !== undefined && reg.claimed_at !== null && (!reg.prize_won || !reg.prize_won.toUpperCase().includes("RE-SPIN"));
-      if (isClaimed) {
-        return {
-          is_used: true,
-          prize_won: reg.prize_won || "Registration Recorded",
-          claimed_at: reg.claimed_at || reg.registered_at,
-          token_code: reg.token_code,
-        };
-      } else {
-        return {
-          is_used: false,
-          prize_won: reg.prize_won || undefined,
-          claimed_at: reg.claimed_at,
-          token_code: reg.token_code,
-        };
-      }
-    }
-
-    return { is_used: false };
+    throw error;
   }
 }
 
 /**
- * Atomic customer registration in Prisma database with fallback store.
+ * Atomic customer registration in the cloud database.
  */
 export async function registerCustomerUser(
   name: string,
@@ -260,17 +226,7 @@ export async function registerCustomerUser(
       },
     };
   } catch (error) {
-    console.warn("Prisma DB write failed, using fallback store:", (error as Error).message);
-    fallbackDb.tokens[randomCode] = tokenObj;
-    fallbackDb.registrations.unshift(regObj);
-    fallbackDb.logs.unshift({
-      id: Math.random().toString(36).substring(2, 9),
-      timestamp: new Date().toISOString(),
-      token: randomCode,
-      action: "REGISTERED",
-      phone: cleanPhone,
-    });
-    return { success: true, token: tokenObj, registration: regObj };
+    throw error;
   }
 }
 
@@ -315,8 +271,7 @@ export async function createToken(code: string, note?: string): Promise<TokenRec
       note: created.note || undefined,
     };
   } catch (error) {
-    fallbackDb.tokens[normalized] = tokenObj;
-    return tokenObj;
+    throw error;
   }
 }
 
@@ -362,7 +317,7 @@ export async function getAllTokens(): Promise<TokenRecord[]> {
       };
     });
   } catch (error) {
-    return Object.values(fallbackDb.tokens);
+    throw error;
   }
 }
 
@@ -373,7 +328,7 @@ export async function getToken(code: string): Promise<TokenRecord | undefined> {
       where: { code: normalized },
     });
 
-    if (!t) return fallbackDb.tokens[normalized];
+    if (!t) return undefined;
 
     let prizeWon: Prize | undefined = undefined;
     if (t.prize_won_json) {
@@ -396,7 +351,7 @@ export async function getToken(code: string): Promise<TokenRecord | undefined> {
       note: t.note || undefined,
     };
   } catch (error) {
-    return fallbackDb.tokens[normalized];
+    throw error;
   }
 }
 
@@ -524,40 +479,7 @@ export async function claimToken(
       whatsappLink: waLink,
     };
   } catch (error) {
-    const isRespin = prize.name.toUpperCase().includes("RE-SPIN");
-    if (!fallbackDb.tokens[normalized]) {
-      fallbackDb.tokens[normalized] = {
-        code: normalized,
-        is_used: !isRespin,
-        created_at: new Date().toISOString(),
-        claimed_at: !isRespin ? new Date().toISOString() : undefined,
-        prize_won: prize,
-        phone,
-        customer_name: name,
-      };
-    } else {
-      fallbackDb.tokens[normalized].is_used = !isRespin;
-      if (!isRespin) {
-        fallbackDb.tokens[normalized].claimed_at = new Date().toISOString();
-      } else {
-        delete fallbackDb.tokens[normalized].claimed_at;
-      }
-      fallbackDb.tokens[normalized].prize_won = prize;
-    }
-
-    const reg = fallbackDb.registrations.find((r) => r.phone === phone || r.token_code === normalized);
-    if (reg) {
-      reg.prize_won = prize.name;
-      if (!isRespin) {
-        reg.claimed_at = new Date().toISOString();
-      }
-    }
-
-    return {
-      success: true,
-      token: fallbackDb.tokens[normalized],
-      whatsappLink: phone && !isRespin ? generateWhatsAppLink(phone, prize.name, name) : "",
-    };
+    throw error;
   }
 }
 
@@ -574,14 +496,8 @@ export async function resetToken(code: string): Promise<boolean> {
       },
     });
     return true;
-  } catch {
-    if (fallbackDb.tokens[normalized]) {
-      fallbackDb.tokens[normalized].is_used = false;
-      delete fallbackDb.tokens[normalized].claimed_at;
-      delete fallbackDb.tokens[normalized].prize_won;
-      return true;
-    }
-    return false;
+  } catch (error) {
+    throw error;
   }
 }
 
@@ -592,8 +508,8 @@ export async function getDbPrizes(): Promise<Prize[]> {
       orderBy: { order_index: "asc" },
     });
 
-    if (!dbPrizes || dbPrizes.length === 0) {
-      return fallbackDb.prizes;
+    if (dbPrizes.length === 0) {
+      throw new Error("No enabled prizes found in the cloud database. Run the database seed first.");
     }
 
     return dbPrizes.map((p) => ({
@@ -610,7 +526,7 @@ export async function getDbPrizes(): Promise<Prize[]> {
       enabled: p.enabled,
     }));
   } catch (error) {
-    return fallbackDb.prizes;
+    throw error;
   }
 }
 
@@ -641,11 +557,9 @@ export async function updateDbPrizes(prizes: Prize[]): Promise<boolean> {
         },
       });
     }
-    fallbackDb.prizes = prizes;
     return true;
   } catch (error) {
-    fallbackDb.prizes = prizes;
-    return true;
+    throw error;
   }
 }
 
@@ -654,10 +568,6 @@ export async function getAllRegistrations(): Promise<CustomerRegistration[]> {
     const regs = await prisma.customerRegistration.findMany({
       orderBy: { registered_at: "desc" },
     });
-
-    if (!regs || regs.length === 0) {
-      return fallbackDb.registrations;
-    }
 
     return regs.map((r) => ({
       id: r.id,
@@ -670,73 +580,42 @@ export async function getAllRegistrations(): Promise<CustomerRegistration[]> {
       whatsapp_link: r.whatsapp_link || undefined,
     }));
   } catch (error) {
-    return fallbackDb.registrations;
+    throw error;
   }
 }
 
 export async function deleteRegistration(id: string): Promise<boolean> {
-  let deletedInFallback = false;
-  const targetReg = fallbackDb.registrations.find((r) => r.id === id);
-  if (targetReg) {
-    fallbackDb.registrations = fallbackDb.registrations.filter((r) => r.id !== id);
-    deletedInFallback = true;
+  const reg = await prisma.customerRegistration.findUnique({
+    where: { id },
+  });
+
+  if (!reg) return false;
+
+  await prisma.customerRegistration.delete({
+    where: { id },
+  });
+
+  if (reg.token_code) {
+    await prisma.tokenRecord.deleteMany({
+      where: { code: reg.token_code },
+    });
   }
 
-  try {
-    const reg = await prisma.customerRegistration.findUnique({
-      where: { id },
-    });
-
-    if (!reg) return deletedInFallback;
-
-    await prisma.customerRegistration.delete({
-      where: { id },
-    });
-
-    if (reg.token_code) {
-      try {
-        await prisma.tokenRecord.delete({
-          where: { code: reg.token_code },
-        });
-      } catch {}
-    }
-
-    if (reg.phone) {
-      const cleanDigits = reg.phone.replace(/\D/g, "");
-      const last10 = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
-
-      try {
-        await prisma.tokenRecord.deleteMany({
-          where: {
-            phone: {
-              endsWith: last10,
-            },
-          },
-        });
-      } catch {}
-    }
-
-    return true;
-  } catch (error) {
-    return deletedInFallback;
-  }
+  return true;
 }
 
 export async function addLog(log: SpinLog): Promise<void> {
-  fallbackDb.logs.unshift(log);
-  try {
-    await prisma.spinLog.create({
-      data: {
-        id: log.id || Math.random().toString(36).substring(2, 9),
-        timestamp: new Date(log.timestamp),
-        token: log.token,
-        action: log.action,
-        prize_won: log.prize_won || undefined,
-        ip: log.ip || undefined,
-        phone: log.phone || undefined,
-      },
-    });
-  } catch (error) {}
+  await prisma.spinLog.create({
+    data: {
+      id: log.id || Math.random().toString(36).substring(2, 9),
+      timestamp: new Date(log.timestamp),
+      token: log.token,
+      action: log.action,
+      prize_won: log.prize_won || undefined,
+      ip: log.ip || undefined,
+      phone: log.phone || undefined,
+    },
+  });
 }
 
 export async function getLogs(): Promise<SpinLog[]> {
@@ -745,10 +624,6 @@ export async function getLogs(): Promise<SpinLog[]> {
       orderBy: { timestamp: "desc" },
       take: 500,
     });
-
-    if (!logs || logs.length === 0) {
-      return fallbackDb.logs;
-    }
 
     return logs.map((l) => ({
       id: l.id,
@@ -760,6 +635,6 @@ export async function getLogs(): Promise<SpinLog[]> {
       phone: l.phone || undefined,
     }));
   } catch (error) {
-    return fallbackDb.logs;
+    throw error;
   }
 }

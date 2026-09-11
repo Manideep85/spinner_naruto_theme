@@ -44,7 +44,7 @@ function SpinnerPageContent() {
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
 
-  // Restore active token from URL or localStorage
+  // Restore the active token for convenience; claim state always comes from the cloud API.
   useEffect(() => {
     let token = tokenParam;
     if (!token && typeof window !== "undefined") {
@@ -76,21 +76,8 @@ function SpinnerPageContent() {
         if (data.valid) {
           setTokenValid(true);
 
-          let localClaimed = false;
-          let savedPrize: Prize | null = null;
-          if (typeof window !== "undefined") {
-            const localData = localStorage.getItem(`ninja_claimed_${activeToken}`);
-            if (localData) {
-              try {
-                const parsed = JSON.parse(localData);
-                localClaimed = true;
-                savedPrize = parsed.prize;
-              } catch {}
-            }
-          }
-
-          const claimedState = data.is_used || localClaimed;
-          let finalPrize = data.prize_won || savedPrize;
+          const claimedState = data.is_used;
+          let finalPrize = data.prize_won;
 
           if (typeof finalPrize === "string") {
             const matched = INITIAL_PRIZES.find(
@@ -137,32 +124,6 @@ function SpinnerPageContent() {
 
     const last10 = phoneVal.cleanPhone;
 
-    // Check client side persistent lock
-    if (typeof window !== "undefined" && last10) {
-      const localLock = localStorage.getItem(`ninja_claimed_phone_${last10}`);
-      const cookieLock = document.cookie.includes(`ninja_claimed_phone_${last10}=true`);
-      if (localLock || cookieLock) {
-        let savedPrize: Prize | null = null;
-        let isUsedLocal = true;
-        if (localLock) {
-          try {
-            const parsed = JSON.parse(localLock);
-            savedPrize = parsed.prize;
-            if (parsed.is_used === false || parsed.prize?.id === "re-spin-chakra" || (typeof parsed.prize?.name === "string" && parsed.prize.name.toUpperCase().includes("RE-SPIN"))) {
-              isUsedLocal = false;
-            }
-          } catch {}
-        }
-        if (isUsedLocal && cookieLock) {
-          setIsUsed(true);
-          setPrizeWon(savedPrize);
-          setTokenValid(true);
-          setActiveToken("CLAIMED_LOCKED");
-          return;
-        }
-      }
-    }
-
     setIsLoading(true);
     setErrorMessage("");
 
@@ -192,14 +153,6 @@ function SpinnerPageContent() {
             } else {
               matchedPrize = data.prize_won;
             }
-          }
-
-          if (typeof window !== "undefined" && last10) {
-            localStorage.setItem(
-              `ninja_claimed_phone_${last10}`,
-              JSON.stringify({ is_used: true, prize: matchedPrize })
-            );
-            document.cookie = `ninja_claimed_phone_${last10}=true; max-age=31536000; path=/`;
           }
 
           setIsUsed(true);
@@ -254,9 +207,6 @@ function SpinnerPageContent() {
           }
           setPrizeWon(matchedPrize);
           setClaimedAt(data.claimed_at);
-          if (typeof window !== "undefined") {
-            localStorage.setItem(`ninja_claimed_${activeToken}`, JSON.stringify({ prize: data.prize_won }));
-          }
         } else {
           setErrorMessage(data.error || "Failed to execute spin.");
         }
@@ -279,24 +229,7 @@ function SpinnerPageContent() {
       setClaimedAt(new Date().toISOString());
       setShowModal(true);
 
-      const cleanDigits = userPhone.trim().replace(/\D/g, "");
-      const last10 = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
-
       const isRespinPrize = wonPrize.id === "re-spin-chakra" || (typeof wonPrize.name === "string" && wonPrize.name.toUpperCase().includes("RE-SPIN"));
-
-      if (typeof window !== "undefined") {
-        localStorage.setItem(
-          `ninja_claimed_${activeToken}`,
-          JSON.stringify({ is_used: !isRespinPrize, prize: wonPrize, claimed_at: isRespinPrize ? null : new Date().toISOString() })
-        );
-        if (last10 && !isRespinPrize) {
-          localStorage.setItem(
-            `ninja_claimed_phone_${last10}`,
-            JSON.stringify({ is_used: true, prize: wonPrize, claimed_at: new Date().toISOString() })
-          );
-          document.cookie = `ninja_claimed_phone_${last10}=true; max-age=31536000; path=/`;
-        }
-      }
 
       if (!isRespinPrize) {
         setIsUsed(true);

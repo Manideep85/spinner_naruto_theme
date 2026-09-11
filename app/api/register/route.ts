@@ -42,7 +42,13 @@ export async function POST(request: Request) {
 
     // 2. Generate signed token
     const tokenCode = createSignedToken(name, phone);
-    await registerCustomerUser(name, phone);
+    const registration = await registerCustomerUser(name, phone);
+    if (!registration.success || !registration.token) {
+      return NextResponse.json(
+        { success: false, error: registration.error || "Failed to save registration." },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
