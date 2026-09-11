@@ -6,7 +6,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const tokenCode = searchParams.get("token");
 
-  const prizes = getDbPrizes();
+  const prizes = await getDbPrizes();
 
   if (!tokenCode) {
     return NextResponse.json({
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
   if (signedPayload) {
     // Check if token in local memory DB has been used
-    const tokenRecord = getToken(tokenCode);
+    const tokenRecord = await getToken(tokenCode);
 
     return NextResponse.json({
       valid: true,
@@ -37,7 +37,7 @@ export async function GET(request: Request) {
   }
 
   // 2. Fallback check for legacy DB token
-  const tokenRecord = getToken(tokenCode);
+  const tokenRecord = await getToken(tokenCode);
 
   if (!tokenRecord) {
     return NextResponse.json({

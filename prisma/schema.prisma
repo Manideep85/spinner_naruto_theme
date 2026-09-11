@@ -1,0 +1,68 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model CustomerRegistration {
+  id           String    @id @default(uuid())
+  name         String
+  phone        String    @unique
+  token_code   String    @unique
+  prize_won    String?
+  registered_at DateTime  @default(now())
+  claimed_at    DateTime?
+  whatsapp_link String?
+
+  token        TokenRecord? @relation(fields: [token_code], references: [code], onDelete: Cascade)
+
+  @@index([phone])
+}
+
+model TokenRecord {
+  code          String    @id
+  is_used       Boolean   @default(false)
+  created_at    DateTime  @default(now())
+  claimed_at    DateTime?
+  prize_won_json String?
+  slice_index   Int?
+  ip            String?
+  user_agent    String?
+  phone         String?
+  customer_name String?
+  note          String?
+
+  registration  CustomerRegistration?
+}
+
+model PrizeRecord {
+  id          String   @id
+  name        String
+  character   String
+  description String
+  rarity      String
+  weight      Int      @default(1)
+  color       String
+  textColor   String
+  icon        String   @default("")
+  badge       String
+  enabled     Boolean  @default(true)
+  order_index Int      @default(0)
+  updated_at  DateTime @updatedAt
+}
+
+model SpinLog {
+  id        String   @id @default(uuid())
+  timestamp DateTime @default(now())
+  token     String
+  action    String
+  prize_won String?
+  ip        String?
+  phone     String?
+
+  @@index([timestamp])
+  @@index([phone])
+}

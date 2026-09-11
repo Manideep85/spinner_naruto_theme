@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     const cleanPhone = phoneValidation.cleanPhone;
 
     // 1. Strict Phone Lock Check: Prevent already registered phone numbers from getting a new spin
-    const phoneCheck = isPhoneAlreadyUsed(cleanPhone);
+    const phoneCheck = await isPhoneAlreadyUsed(cleanPhone);
     if (phoneCheck.is_used) {
       return NextResponse.json(
         {
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
 
     // 2. Generate signed token
     const tokenCode = createSignedToken(name, phone);
-    registerCustomerUser(name, phone);
+    await registerCustomerUser(name, phone);
 
     return NextResponse.json({
       success: true,

@@ -26,7 +26,7 @@ export async function POST(request: Request) {
       customerPhone = signedPayload.phone;
     } else {
       // Check legacy DB token
-      const dbToken = getToken(tokenCode);
+      const dbToken = await getToken(tokenCode);
       if (!dbToken) {
         return NextResponse.json(
           { success: false, error: "Invalid Spin Token. Access Denied." },
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     }
 
     // Check single-use lock
-    const tokenRecord = getToken(tokenCode);
+    const tokenRecord = await getToken(tokenCode);
     if (tokenRecord && tokenRecord.is_used) {
       const waLink = customerPhone && tokenRecord.prize_won
         ? generateWhatsAppLink(customerPhone, tokenRecord.prize_won.name, customerName)
@@ -61,11 +61,11 @@ export async function POST(request: Request) {
     const userAgent = request.headers.get("user-agent") || "unknown";
 
     // 2. Secret server prize calculation
-    const currentPrizes = getDbPrizes();
+    const currentPrizes = await getDbPrizes();
     const { prize, sliceIndex } = selectServerPrize(currentPrizes);
 
     // 3. Mark token as claimed
-    const result = claimToken(tokenCode, prize, sliceIndex, ip, userAgent, customerPhone, customerName);
+    const result = await claimToken(tokenCode, prize, sliceIndex, ip, userAgent, customerPhone, customerName);
 
     const whatsappLink = customerPhone
       ? generateWhatsAppLink(customerPhone, prize.name, customerName)

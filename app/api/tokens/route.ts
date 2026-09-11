@@ -24,10 +24,10 @@ export async function GET(request: Request) {
     );
   }
 
-  const tokens = getAllTokens();
-  const logs = getLogs();
-  const prizes = getDbPrizes();
-  const registrations = getAllRegistrations();
+  const tokens = await getAllTokens();
+  const logs = await getLogs();
+  const prizes = await getDbPrizes();
+  const registrations = await getAllRegistrations();
 
   return NextResponse.json({
     success: true,
@@ -54,14 +54,14 @@ export async function POST(request: Request) {
       if (!code) {
         return NextResponse.json({ error: "Token code is required." }, { status: 400 });
       }
-      const token = createToken(code, note);
+      const token = await createToken(code, note);
       return NextResponse.json({ success: true, token });
     }
 
     if (action === "generate_batch") {
       const num = parseInt(count) || 5;
       const batchPrefix = prefix || "SHINOBI";
-      const created = generateTokenBatch(num, batchPrefix);
+      const created = await generateTokenBatch(num, batchPrefix);
       return NextResponse.json({ success: true, createdCount: created.length, tokens: created });
     }
 
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
       if (!code) {
         return NextResponse.json({ error: "Token code required." }, { status: 400 });
       }
-      const resetOk = resetToken(code);
+      const resetOk = await resetToken(code);
       return NextResponse.json({ success: resetOk });
     }
 
@@ -77,16 +77,16 @@ export async function POST(request: Request) {
       if (!id) {
         return NextResponse.json({ error: "Registration ID required." }, { status: 400 });
       }
-      const deleteOk = deleteRegistration(id);
-      return NextResponse.json({ success: deleteOk, registrations: getAllRegistrations() });
+      const deleteOk = await deleteRegistration(id);
+      return NextResponse.json({ success: deleteOk, registrations: await getAllRegistrations() });
     }
 
     if (action === "update_prizes") {
       if (!Array.isArray(prizes)) {
         return NextResponse.json({ error: "Prizes array required." }, { status: 400 });
       }
-      updateDbPrizes(prizes);
-      return NextResponse.json({ success: true, prizes: getDbPrizes() });
+      await updateDbPrizes(prizes);
+      return NextResponse.json({ success: true, prizes: await getDbPrizes() });
     }
 
     return NextResponse.json({ error: "Invalid action type." }, { status: 400 });

@@ -1,5 +1,4 @@
-import fs from "fs";
-import path from "path";
+import { prisma } from "./prisma";
 import { Prize, INITIAL_PRIZES } from "./prizes";
 import { generateWhatsAppLink } from "./utils";
 
@@ -38,175 +37,74 @@ export interface CustomerRegistration {
   whatsapp_link?: string;
 }
 
-interface DatabaseSchema {
-  tokens: Record<string, TokenRecord>;
-  logs: SpinLog[];
-  prizes: Prize[];
-  registrations: CustomerRegistration[];
-}
-
-const IS_VERCEL = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
-const DB_DIR = IS_VERCEL ? "/tmp" : path.join(process.cwd(), "data");
-const DB_FILE = path.join(DB_DIR, "tokens_db.json");
-const SEED_DB_FILE = path.join(process.cwd(), "data", "tokens_db.json");
-
-const DEFAULT_TOKENS: Record<string, TokenRecord> = {};
-
-let inMemoryDb: DatabaseSchema = {
-  tokens: { ...DEFAULT_TOKENS },
-  logs: [],
-  prizes: [...INITIAL_PRIZES],
-  registrations: [],
-};
-
-function ensureDbDirectory() {
-  try {
-    if (!fs.existsSync(DB_DIR)) {
-      fs.mkdirSync(DB_DIR, { recursive: true });
-    }
-  } catch {}
-}
-
-function readDb(): DatabaseSchema {
-  try {
-    ensureDbDirectory();
-    let loaded: Partial<DatabaseSchema> = {};
-
-    if (fs.existsSync(DB_FILE)) {
-      try {
-        const data = fs.readFileSync(DB_FILE, "utf-8");
-        const parsed = JSON.parse(data);
-        if (parsed) loaded = parsed;
-      } catch {}
-    }
-
-    let seedLoaded: Partial<DatabaseSchema> = {};
-    if (fs.existsSync(SEED_DB_FILE)) {
-      try {
-        const seedData = fs.readFileSync(SEED_DB_FILE, "utf-8");
-        const parsedSeed = JSON.parse(seedData);
-        if (parsedSeed) seedLoaded = parsedSeed;
-      } catch {}
-    }
-
-    const mergedTokens = {
-      ...(seedLoaded.tokens || {}),
-      ...(loaded.tokens || {}),
-      ...inMemoryDb.tokens,
-    };
-
-    const regMap = new Map<string, CustomerRegistration>();
-    [
-      ...(seedLoaded.registrations || []),
-      ...(loaded.registrations || []),
-      ...inMemoryDb.registrations,
-    ].forEach((r) => {
-      if (r && r.id) {
-        const existing = regMap.get(r.id);
-        if (!existing || (r.prize_won && !existing.prize_won)) {
-          regMap.set(r.id, r);
-        }
-      }
-    });
-
-    const logMap = new Map<string, SpinLog>();
-    [
-      ...(seedLoaded.logs || []),
-      ...(loaded.logs || []),
-      ...inMemoryDb.logs,
-    ].forEach((l) => {
-      if (l && l.id) logMap.set(l.id, l);
-    });
-
-    const mergedRegistrations = Array.from(regMap.values()).sort(
-      (a, b) => new Date(b.registered_at).getTime() - new Date(a.registered_at).getTime()
-    );
-
-    const mergedLogs = Array.from(logMap.values()).sort(
-      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    );
-
-    inMemoryDb = {
-      tokens: mergedTokens,
-      logs: mergedLogs,
-      prizes: loaded.prizes || seedLoaded.prizes || inMemoryDb.prizes || INITIAL_PRIZES,
-      registrations: mergedRegistrations,
-    };
-
-    return inMemoryDb;
-  } catch {
-    return inMemoryDb;
-  }
-}
-
-function writeDb(data: DatabaseSchema): void {
-  inMemoryDb = data;
-  try {
-    ensureDbDirectory();
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), "utf-8");
-  } catch {}
-  try {
-    if (fs.existsSync(SEED_DB_FILE)) {
-      fs.writeFileSync(SEED_DB_FILE, JSON.stringify(data, null, 2), "utf-8");
-    }
-  } catch {}
-}
-
 /**
  * Check if a 10-digit phone number has ALREADY registered or used a spin.
- * STRICT SINGLE-USE LOCK: Returns true immediately if phone is found in registrations or tokens.
+ * Queries CustomerRegistration and TokenRecord in Prisma relational DB.
  */
-export function isPhoneAlreadyUsed(phone: string): { is_used: boolean; prize_won?: string; claimed_at?: string; token_code?: string } {
-  const db = readDb();
+export async function isPhoneAlreadyUsed(phone: string): Promise<{ is_used: boolean; prize_won?: string; claimed_at?: string; token_code?: string }> {
   const digits = phone.trim().replace(/\D/g, "");
   const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
   if (!last10) return { is_used: false };
 
-  // Check registrations (ANY record matching phone means phone is locked!)
-  const reg = db.registrations.find((r) => {
-    const rDigits = r.phone.replace(/\D/g, "");
-    const rLast10 = rDigits.length >= 10 ? rDigits.slice(-10) : rDigits;
-    return rLast10 === last10;
-  });
+  try {
+    const reg = await prisma.customerRegistration.findFirst({
+      where: {
+        phone: {
+          endsWith: last10,
+        },
+      },
+    });
 
-  if (reg) {
-    return {
-      is_used: true,
-      prize_won: reg.prize_won || "Registration Recorded",
-      claimed_at: reg.claimed_at || reg.registered_at,
-      token_code: reg.token_code,
-    };
+    if (reg) {
+      return {
+        is_used: true,
+        prize_won: reg.prize_won || "Registration Recorded",
+        claimed_at: reg.claimed_at ? reg.claimed_at.toISOString() : reg.registered_at.toISOString(),
+        token_code: reg.token_code,
+      };
+    }
+
+    const token = await prisma.tokenRecord.findFirst({
+      where: {
+        phone: {
+          endsWith: last10,
+        },
+      },
+    });
+
+    if (token) {
+      let prizeObj: Prize | undefined = undefined;
+      if (token.prize_won_json) {
+        try {
+          prizeObj = JSON.parse(token.prize_won_json);
+        } catch {}
+      }
+
+      return {
+        is_used: true,
+        prize_won: prizeObj?.name || "Registration Recorded",
+        claimed_at: token.claimed_at ? token.claimed_at.toISOString() : token.created_at.toISOString(),
+        token_code: token.code,
+      };
+    }
+
+    return { is_used: false };
+  } catch (error) {
+    console.error("isPhoneAlreadyUsed DB error:", error);
+    return { is_used: false };
   }
-
-  // Check tokens
-  const tokenList = Object.values(db.tokens);
-  const matchedToken = tokenList.find((t) => {
-    if (!t.phone) return false;
-    const tDigits = t.phone.replace(/\D/g, "");
-    const tLast10 = tDigits.length >= 10 ? tDigits.slice(-10) : tDigits;
-    return tLast10 === last10;
-  });
-
-  if (matchedToken) {
-    return {
-      is_used: true,
-      prize_won: matchedToken.prize_won?.name || "Registration Recorded",
-      claimed_at: matchedToken.claimed_at || matchedToken.created_at,
-      token_code: matchedToken.code,
-    };
-  }
-
-  return { is_used: false };
 }
 
-export function registerCustomerUser(
+/**
+ * Atomic customer registration in Prisma database.
+ */
+export async function registerCustomerUser(
   name: string,
   phone: string
-): { success: boolean; token?: TokenRecord; registration?: CustomerRegistration; is_used?: boolean; prize_won?: string; claimed_at?: string; error?: string } {
-  const db = readDb();
+): Promise<{ success: boolean; token?: TokenRecord; registration?: CustomerRegistration; is_used?: boolean; prize_won?: string; claimed_at?: string; error?: string }> {
   const cleanPhone = phone.trim().replace(/\D/g, "");
 
-  const phoneCheck = isPhoneAlreadyUsed(cleanPhone);
+  const phoneCheck = await isPhoneAlreadyUsed(cleanPhone);
   if (phoneCheck.is_used) {
     return {
       success: false,
@@ -219,93 +117,191 @@ export function registerCustomerUser(
 
   const randomCode = `NINJA-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
-  const tokenObj: TokenRecord = {
-    code: randomCode,
-    is_used: false,
-    created_at: new Date().toISOString(),
-    customer_name: name.trim(),
-    phone: cleanPhone,
-    note: `Registered User: ${name.trim()}`,
-  };
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const tokenRec = await tx.tokenRecord.create({
+        data: {
+          code: randomCode,
+          is_used: false,
+          created_at: new Date(),
+          customer_name: name.trim(),
+          phone: cleanPhone,
+          note: `Registered User: ${name.trim()}`,
+        },
+      });
 
-  const regObj: CustomerRegistration = {
-    id: Math.random().toString(36).substring(2, 9),
-    name: name.trim(),
-    phone: cleanPhone,
-    token_code: randomCode,
-    registered_at: new Date().toISOString(),
-  };
+      const regRec = await tx.customerRegistration.create({
+        data: {
+          id: Math.random().toString(36).substring(2, 9),
+          name: name.trim(),
+          phone: cleanPhone,
+          token_code: randomCode,
+          registered_at: new Date(),
+        },
+      });
 
-  db.tokens[randomCode] = tokenObj;
-  db.registrations.unshift(regObj);
+      await tx.spinLog.create({
+        data: {
+          id: Math.random().toString(36).substring(2, 9),
+          timestamp: new Date(),
+          token: randomCode,
+          action: "REGISTERED",
+          phone: cleanPhone,
+        },
+      });
 
-  addLog({
-    id: Math.random().toString(36).substring(2, 9),
-    timestamp: new Date().toISOString(),
-    token: randomCode,
-    action: "REGISTERED",
-    phone: cleanPhone,
-  });
+      return { tokenRec, regRec };
+    });
 
-  writeDb(db);
-  return { success: true, token: tokenObj, registration: regObj };
+    const tokenObj: TokenRecord = {
+      code: result.tokenRec.code,
+      is_used: result.tokenRec.is_used,
+      created_at: result.tokenRec.created_at.toISOString(),
+      customer_name: result.tokenRec.customer_name || undefined,
+      phone: result.tokenRec.phone || undefined,
+    };
+
+    const regObj: CustomerRegistration = {
+      id: result.regRec.id,
+      name: result.regRec.name,
+      phone: result.regRec.phone,
+      token_code: result.regRec.token_code,
+      registered_at: result.regRec.registered_at.toISOString(),
+    };
+
+    return { success: true, token: tokenObj, registration: regObj };
+  } catch (error) {
+    console.error("registerCustomerUser DB error:", error);
+    return { success: false, error: "Database error registering customer." };
+  }
 }
 
-export function createToken(code: string, note?: string): TokenRecord {
-  const db = readDb();
+export async function createToken(code: string, note?: string): Promise<TokenRecord> {
   const normalized = code.trim().toUpperCase();
 
-  if (db.tokens[normalized]) {
-    return db.tokens[normalized];
+  try {
+    const existing = await prisma.tokenRecord.findUnique({
+      where: { code: normalized },
+    });
+
+    if (existing) {
+      return {
+        code: existing.code,
+        is_used: existing.is_used,
+        created_at: existing.created_at.toISOString(),
+        claimed_at: existing.claimed_at?.toISOString(),
+        note: existing.note || undefined,
+      };
+    }
+
+    const created = await prisma.tokenRecord.create({
+      data: {
+        code: normalized,
+        is_used: false,
+        created_at: new Date(),
+        note: note || "Generated Shinobi Token",
+      },
+    });
+
+    return {
+      code: created.code,
+      is_used: created.is_used,
+      created_at: created.created_at.toISOString(),
+      note: created.note || undefined,
+    };
+  } catch (error) {
+    console.error("createToken error:", error);
+    return {
+      code: normalized,
+      is_used: false,
+      created_at: new Date().toISOString(),
+    };
   }
-
-  const newToken: TokenRecord = {
-    code: normalized,
-    is_used: false,
-    created_at: new Date().toISOString(),
-    note: note || "Generated Shinobi Token",
-  };
-
-  db.tokens[normalized] = newToken;
-  writeDb(db);
-  return newToken;
 }
 
-export function generateTokenBatch(count: number, prefix: string = "NINJA"): TokenRecord[] {
-  const db = readDb();
-  const created: TokenRecord[] = [];
+export async function generateTokenBatch(count: number, prefix: string = "NINJA"): Promise<TokenRecord[]> {
+  const createdList: TokenRecord[] = [];
 
   for (let i = 0; i < count; i++) {
     const randomSuffix = Math.random().toString(36).substring(2, 7).toUpperCase();
     const code = `${prefix}-${randomSuffix}`;
-    if (!db.tokens[code]) {
-      const tokenObj: TokenRecord = {
-        code,
-        is_used: false,
-        created_at: new Date().toISOString(),
-        note: `Batch Ticket #${i + 1}`,
-      };
-      db.tokens[code] = tokenObj;
-      created.push(tokenObj);
-    }
+    const token = await createToken(code, `Batch Ticket #${i + 1}`);
+    createdList.push(token);
   }
 
-  writeDb(db);
-  return created;
+  return createdList;
 }
 
-export function getAllTokens(): TokenRecord[] {
-  const db = readDb();
-  return Object.values(db.tokens);
+export async function getAllTokens(): Promise<TokenRecord[]> {
+  try {
+    const tokens = await prisma.tokenRecord.findMany({
+      orderBy: { created_at: "desc" },
+    });
+
+    return tokens.map((t) => {
+      let prizeWon: Prize | undefined = undefined;
+      if (t.prize_won_json) {
+        try {
+          prizeWon = JSON.parse(t.prize_won_json);
+        } catch {}
+      }
+
+      return {
+        code: t.code,
+        is_used: t.is_used,
+        created_at: t.created_at.toISOString(),
+        claimed_at: t.claimed_at?.toISOString(),
+        prize_won: prizeWon,
+        slice_index: t.slice_index || undefined,
+        ip: t.ip || undefined,
+        user_agent: t.user_agent || undefined,
+        phone: t.phone || undefined,
+        customer_name: t.customer_name || undefined,
+        note: t.note || undefined,
+      };
+    });
+  } catch (error) {
+    console.error("getAllTokens error:", error);
+    return [];
+  }
 }
 
-export function getToken(code: string): TokenRecord | undefined {
-  const db = readDb();
+export async function getToken(code: string): Promise<TokenRecord | undefined> {
   const normalized = code.trim().toUpperCase();
-  return db.tokens[normalized];
+  try {
+    const t = await prisma.tokenRecord.findUnique({
+      where: { code: normalized },
+    });
+
+    if (!t) return undefined;
+
+    let prizeWon: Prize | undefined = undefined;
+    if (t.prize_won_json) {
+      try {
+        prizeWon = JSON.parse(t.prize_won_json);
+      } catch {}
+    }
+
+    return {
+      code: t.code,
+      is_used: t.is_used,
+      created_at: t.created_at.toISOString(),
+      claimed_at: t.claimed_at?.toISOString(),
+      prize_won: prizeWon,
+      slice_index: t.slice_index !== null ? t.slice_index : undefined,
+      ip: t.ip || undefined,
+      user_agent: t.user_agent || undefined,
+      phone: t.phone || undefined,
+      customer_name: t.customer_name || undefined,
+      note: t.note || undefined,
+    };
+  } catch (error) {
+    console.error("getToken DB error:", error);
+    return undefined;
+  }
 }
 
-export function claimToken(
+export async function claimToken(
   code: string,
   prize: Prize,
   sliceIndex: number,
@@ -313,161 +309,306 @@ export function claimToken(
   userAgent: string = "unknown",
   phone?: string,
   name?: string
-): { success: boolean; token?: TokenRecord; error?: string; registration?: CustomerRegistration; whatsappLink?: string } {
-  const db = readDb();
+): Promise<{ success: boolean; token?: TokenRecord; error?: string; registration?: CustomerRegistration; whatsappLink?: string }> {
   const normalized = code.trim().toUpperCase();
-  let token = db.tokens[normalized];
 
-  if (!token) {
-    token = {
-      code: normalized,
-      is_used: false,
-      created_at: new Date().toISOString(),
-      customer_name: name,
-      phone: phone,
-    };
-  }
+  try {
+    const existing = await getToken(normalized);
 
-  if (token.is_used) {
-    addLog({
-      id: Math.random().toString(36).substring(2, 9),
-      timestamp: new Date().toISOString(),
-      token: code,
-      action: "REJECTED_ALREADY_CLAIMED",
-      prize_won: token.prize_won?.name,
-      ip,
-    });
-    return { success: false, token, error: "You have already used your spin access!" };
-  }
+    if (existing && existing.is_used) {
+      await addLog({
+        id: Math.random().toString(36).substring(2, 9),
+        timestamp: new Date().toISOString(),
+        token: code,
+        action: "REJECTED_ALREADY_CLAIMED",
+        prize_won: existing.prize_won?.name,
+        ip,
+      });
 
-  token.is_used = true;
-  token.claimed_at = new Date().toISOString();
-  token.prize_won = prize;
-  token.slice_index = sliceIndex;
-  token.ip = ip;
-  token.user_agent = userAgent;
-  if (phone) token.phone = phone;
-  if (name) token.customer_name = name;
-
-  db.tokens[normalized] = token;
-
-  let waLink = "";
-  if (token.phone) {
-    waLink = generateWhatsAppLink(token.phone, prize.name, token.customer_name);
-  }
-
-  const regIndex = db.registrations.findIndex((r) => r.token_code === normalized || (token.phone && r.phone === token.phone));
-  if (regIndex >= 0) {
-    db.registrations[regIndex].prize_won = prize.name;
-    db.registrations[regIndex].claimed_at = token.claimed_at;
-    db.registrations[regIndex].whatsapp_link = waLink;
-  } else if (phone) {
-    db.registrations.unshift({
-      id: Math.random().toString(36).substring(2, 9),
-      name: name || "Shinobi Customer",
-      phone,
-      token_code: normalized,
-      prize_won: prize.name,
-      registered_at: new Date().toISOString(),
-      claimed_at: token.claimed_at,
-      whatsapp_link: waLink,
-    });
-  }
-
-  addLog({
-    id: Math.random().toString(36).substring(2, 9),
-    timestamp: new Date().toISOString(),
-    token: code,
-    action: "SPUN",
-    prize_won: prize.name,
-    ip,
-    phone: token.phone,
-  });
-
-  writeDb(db);
-  return {
-    success: true,
-    token,
-    whatsappLink: waLink,
-  };
-}
-
-export function resetToken(code: string): boolean {
-  const db = readDb();
-  const normalized = code.trim().toUpperCase();
-  if (db.tokens[normalized]) {
-    db.tokens[normalized].is_used = false;
-    delete db.tokens[normalized].claimed_at;
-    delete db.tokens[normalized].prize_won;
-    delete db.tokens[normalized].slice_index;
-    writeDb(db);
-    return true;
-  }
-  return false;
-}
-
-export function getDbPrizes(): Prize[] {
-  const db = readDb();
-  return db.prizes && db.prizes.length > 0 ? db.prizes : INITIAL_PRIZES;
-}
-
-export function updateDbPrizes(prizes: Prize[]): boolean {
-  const db = readDb();
-  db.prizes = prizes;
-  writeDb(db);
-  return true;
-}
-
-export function getAllRegistrations(): CustomerRegistration[] {
-  const db = readDb();
-  return db.registrations || [];
-}
-
-export function deleteRegistration(id: string): boolean {
-  const db = readDb();
-  const initialCount = db.registrations.length;
-  const targetReg = db.registrations.find((r) => r.id === id);
-
-  if (targetReg) {
-    if (targetReg.token_code && db.tokens[targetReg.token_code]) {
-      delete db.tokens[targetReg.token_code];
+      return { success: false, token: existing, error: "You have already used your spin access!" };
     }
-    // Also remove any tokens matching phone
-    if (targetReg.phone) {
-      const cleanPhoneDigits = targetReg.phone.replace(/\D/g, "");
-      const last10 = cleanPhoneDigits.length >= 10 ? cleanPhoneDigits.slice(-10) : cleanPhoneDigits;
-      Object.keys(db.tokens).forEach((k) => {
-        const t = db.tokens[k];
-        if (t.phone) {
-          const tDigits = t.phone.replace(/\D/g, "");
-          const tLast10 = tDigits.length >= 10 ? tDigits.slice(-10) : tDigits;
-          if (tLast10 === last10) {
-            delete db.tokens[k];
-          }
-        }
+
+    const now = new Date();
+    const prizeJson = JSON.stringify(prize);
+
+    const updatedToken = await prisma.tokenRecord.upsert({
+      where: { code: normalized },
+      update: {
+        is_used: true,
+        claimed_at: now,
+        prize_won_json: prizeJson,
+        slice_index: sliceIndex,
+        ip,
+        user_agent: userAgent,
+        phone: phone || undefined,
+        customer_name: name || undefined,
+      },
+      create: {
+        code: normalized,
+        is_used: true,
+        created_at: now,
+        claimed_at: now,
+        prize_won_json: prizeJson,
+        slice_index: sliceIndex,
+        ip,
+        user_agent: userAgent,
+        phone: phone || undefined,
+        customer_name: name || undefined,
+      },
+    });
+
+    let waLink = "";
+    if (phone) {
+      waLink = generateWhatsAppLink(phone, prize.name, name || updatedToken.customer_name || undefined);
+    }
+
+    // Update CustomerRegistration record if present
+    const regRecord = await prisma.customerRegistration.findFirst({
+      where: {
+        OR: [{ token_code: normalized }, { phone: phone || "NONE" }],
+      },
+    });
+
+    if (regRecord) {
+      await prisma.customerRegistration.update({
+        where: { id: regRecord.id },
+        data: {
+          prize_won: prize.name,
+          claimed_at: now,
+          whatsapp_link: waLink || undefined,
+        },
+      });
+    } else if (phone) {
+      await prisma.customerRegistration.create({
+        data: {
+          id: Math.random().toString(36).substring(2, 9),
+          name: name || "Shinobi Customer",
+          phone,
+          token_code: normalized,
+          prize_won: prize.name,
+          registered_at: now,
+          claimed_at: now,
+          whatsapp_link: waLink || undefined,
+        },
       });
     }
+
+    await addLog({
+      id: Math.random().toString(36).substring(2, 9),
+      timestamp: now.toISOString(),
+      token: code,
+      action: "SPUN",
+      prize_won: prize.name,
+      ip,
+      phone: phone || updatedToken.phone || undefined,
+    });
+
+    const tokenResult: TokenRecord = {
+      code: updatedToken.code,
+      is_used: updatedToken.is_used,
+      created_at: updatedToken.created_at.toISOString(),
+      claimed_at: updatedToken.claimed_at?.toISOString(),
+      prize_won: prize,
+      slice_index: sliceIndex,
+      ip,
+      user_agent: userAgent,
+      phone: updatedToken.phone || undefined,
+      customer_name: updatedToken.customer_name || undefined,
+    };
+
+    return {
+      success: true,
+      token: tokenResult,
+      whatsappLink: waLink,
+    };
+  } catch (error) {
+    console.error("claimToken DB error:", error);
+    return { success: false, error: "Database error claiming token." };
   }
+}
 
-  db.registrations = db.registrations.filter((r) => r.id !== id);
-
-  if (db.registrations.length !== initialCount) {
-    writeDb(db);
+export async function resetToken(code: string): Promise<boolean> {
+  const normalized = code.trim().toUpperCase();
+  try {
+    await prisma.tokenRecord.update({
+      where: { code: normalized },
+      data: {
+        is_used: false,
+        claimed_at: null,
+        prize_won_json: null,
+        slice_index: null,
+      },
+    });
     return true;
+  } catch {
+    return false;
   }
-  return false;
 }
 
-function addLog(log: SpinLog) {
-  const db = readDb();
-  db.logs.unshift(log);
-  if (db.logs.length > 500) {
-    db.logs = db.logs.slice(0, 500);
+export async function getDbPrizes(): Promise<Prize[]> {
+  try {
+    const dbPrizes = await prisma.prizeRecord.findMany({
+      where: { enabled: true },
+      orderBy: { order_index: "asc" },
+    });
+
+    if (!dbPrizes || dbPrizes.length === 0) {
+      return INITIAL_PRIZES;
+    }
+
+    return dbPrizes.map((p) => ({
+      id: p.id,
+      name: p.name,
+      character: p.character,
+      description: p.description,
+      rarity: p.rarity as any,
+      weight: p.weight,
+      color: p.color,
+      textColor: p.textColor,
+      icon: p.icon,
+      badge: p.badge,
+      enabled: p.enabled,
+    }));
+  } catch (error) {
+    console.error("getDbPrizes DB error:", error);
+    return INITIAL_PRIZES;
   }
-  writeDb(db);
 }
 
-export function getLogs(): SpinLog[] {
-  const db = readDb();
-  return db.logs;
+export async function updateDbPrizes(prizes: Prize[]): Promise<boolean> {
+  try {
+    for (let i = 0; i < prizes.length; i++) {
+      const p = prizes[i];
+      await prisma.prizeRecord.upsert({
+        where: { id: p.id },
+        update: {
+          weight: Math.max(0, p.weight),
+          enabled: p.enabled !== false,
+          order_index: i,
+        },
+        create: {
+          id: p.id,
+          name: p.name,
+          character: p.character,
+          description: p.description,
+          rarity: p.rarity,
+          weight: Math.max(0, p.weight),
+          color: p.color,
+          textColor: p.textColor,
+          icon: p.icon || "",
+          badge: p.badge,
+          enabled: p.enabled !== false,
+          order_index: i,
+        },
+      });
+    }
+    return true;
+  } catch (error) {
+    console.error("updateDbPrizes DB error:", error);
+    return false;
+  }
+}
+
+export async function getAllRegistrations(): Promise<CustomerRegistration[]> {
+  try {
+    const regs = await prisma.customerRegistration.findMany({
+      orderBy: { registered_at: "desc" },
+    });
+
+    return regs.map((r) => ({
+      id: r.id,
+      name: r.name,
+      phone: r.phone,
+      token_code: r.token_code,
+      prize_won: r.prize_won || undefined,
+      registered_at: r.registered_at.toISOString(),
+      claimed_at: r.claimed_at?.toISOString(),
+      whatsapp_link: r.whatsapp_link || undefined,
+    }));
+  } catch (error) {
+    console.error("getAllRegistrations DB error:", error);
+    return [];
+  }
+}
+
+export async function deleteRegistration(id: string): Promise<boolean> {
+  try {
+    const reg = await prisma.customerRegistration.findUnique({
+      where: { id },
+    });
+
+    if (!reg) return false;
+
+    await prisma.customerRegistration.delete({
+      where: { id },
+    });
+
+    if (reg.token_code) {
+      try {
+        await prisma.tokenRecord.delete({
+          where: { code: reg.token_code },
+        });
+      } catch {}
+    }
+
+    if (reg.phone) {
+      const cleanDigits = reg.phone.replace(/\D/g, "");
+      const last10 = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
+
+      try {
+        await prisma.tokenRecord.deleteMany({
+          where: {
+            phone: {
+              endsWith: last10,
+            },
+          },
+        });
+      } catch {}
+    }
+
+    return true;
+  } catch (error) {
+    console.error("deleteRegistration DB error:", error);
+    return false;
+  }
+}
+
+export async function addLog(log: SpinLog): Promise<void> {
+  try {
+    await prisma.spinLog.create({
+      data: {
+        id: log.id || Math.random().toString(36).substring(2, 9),
+        timestamp: new Date(log.timestamp),
+        token: log.token,
+        action: log.action,
+        prize_won: log.prize_won || undefined,
+        ip: log.ip || undefined,
+        phone: log.phone || undefined,
+      },
+    });
+  } catch (error) {
+    console.error("addLog DB error:", error);
+  }
+}
+
+export async function getLogs(): Promise<SpinLog[]> {
+  try {
+    const logs = await prisma.spinLog.findMany({
+      orderBy: { timestamp: "desc" },
+      take: 500,
+    });
+
+    return logs.map((l) => ({
+      id: l.id,
+      timestamp: l.timestamp.toISOString(),
+      token: l.token,
+      action: l.action as any,
+      prize_won: l.prize_won || undefined,
+      ip: l.ip || undefined,
+      phone: l.phone || undefined,
+    }));
+  } catch (error) {
+    console.error("getLogs DB error:", error);
+    return [];
+  }
 }
