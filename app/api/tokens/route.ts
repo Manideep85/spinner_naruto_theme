@@ -27,6 +27,13 @@ export async function GET(request: Request) {
       );
     }
 
+    if (!process.env.DATABASE_URL?.trim()) {
+      return NextResponse.json(
+        { success: false, error: "DATABASE_URL is not configured. Add the cloud PostgreSQL connection string to the server environment." },
+        { status: 503 }
+      );
+    }
+
     const [tokens, logs, prizes, registrations] = await Promise.all([
       getAllTokens(),
       getLogs(),
