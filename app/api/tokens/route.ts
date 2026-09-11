@@ -11,13 +11,15 @@ import {
   deleteRegistration,
 } from "@/lib/db";
 
-const ADMIN_PIN = process.env.ADMIN_PIN || "1234";
+const getCleanAdminPin = () => (process.env.ADMIN_PIN || "1234").replace(/['"]/g, "").trim();
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const pin = searchParams.get("pin");
+  const adminPin = getCleanAdminPin();
+  const cleanPin = (pin || "").replace(/['"]/g, "").trim();
 
-  if (pin !== ADMIN_PIN) {
+  if (cleanPin !== adminPin) {
     return NextResponse.json(
       { error: "Unauthorized Shinobi Admin Pin Required." },
       { status: 401 }
@@ -42,8 +44,10 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { action, pin, code, note, count, prefix, prizes, id } = body;
+    const adminPin = getCleanAdminPin();
+    const cleanPin = (pin || "").replace(/['"]/g, "").trim();
 
-    if (pin !== ADMIN_PIN) {
+    if (cleanPin !== adminPin) {
       return NextResponse.json(
         { error: "Unauthorized Shinobi Admin Pin Required." },
         { status: 401 }
